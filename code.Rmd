@@ -1,0 +1,1646 @@
+---
+title: "code"
+author: 
+date: "2021/12/19"
+output: 
+  pdf_document: default
+  html_document: default
+---
+# 关于数据处理的说明
+
+```{r,echo=FALSE,warning=FALSE}
+#读入数据
+suppressMessages(library(tidyverse))
+suppressMessages(library(gridExtra))
+library(ggplot2)
+data<-read.csv("C:/Users/mac/Desktop/cuthand.csv",header=TRUE,na.strings="(跳过)")
+#head(data)
+#分别表示是否参与·预期消费·实际消费·物品种类·为谁购物·购物平台·是否参与活动·是否超前消费·评价·性别·年龄·职业·收入·地区
+names(data)<-c("buy_ornot","expcon","actcon","type","for","plat","activity","excecon","rem","gender","age","job","income","loc")
+data[which(data$buy_ornot=="购物了"),1]<-1
+data[which(data$buy_ornot=="没有"),1]<-0
+data[which(data$gender=="男"),"gender"]<-"male"
+data[which(data$gender=="女"),"gender"]<-"female"
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+#对地区的预处理
+data$loc<-substr(data$loc,1,2)
+data[which(data$loc=="黑龙"),"loc"]<-"Heilongjiang"
+for(i in 1:nrow(data)){
+  if(data[i,"loc"]=="安徽") data[i,"loc"]<-"Anhui"
+  if(data[i,"loc"]=="北京") data[i,"loc"]<-"Beijing"
+  if(data[i,"loc"]=="福建") data[i,"loc"]<-"Fujian"
+  if(data[i,"loc"]=="甘肃") data[i,"loc"]<-"Gansu"
+  if(data[i,"loc"]=="广东") data[i,"loc"]<-"Guangdong"
+  if(data[i,"loc"]=="广西") data[i,"loc"]<-"Guangxi"
+  if(data[i,"loc"]=="海南") data[i,"loc"]<-"Hainan"
+  if(data[i,"loc"]=="河北") data[i,"loc"]<-"Hebei"
+  if(data[i,"loc"]=="河南") data[i,"loc"]<-"Henan"
+  if(data[i,"loc"]=="湖北") data[i,"loc"]<-"Hubei"
+  if(data[i,"loc"]=="湖南") data[i,"loc"]<-"Hunan"
+  if(data[i,"loc"]=="吉林") data[i,"loc"]<-"Jilin"
+  if(data[i,"loc"]=="江苏") data[i,"loc"]<-"Jiangsu"
+  if(data[i,"loc"]=="江西") data[i,"loc"]<-"Jiangxi"
+  if(data[i,"loc"]=="辽宁") data[i,"loc"]<-"Liaoning"
+  if(data[i,"loc"]=="青海") data[i,"loc"]<-"Qinghai"
+  if(data[i,"loc"]=="山东") data[i,"loc"]<-"Shandong"
+  if(data[i,"loc"]=="山西") data[i,"loc"]<-"Shanxi"
+  if(data[i,"loc"]=="陕西") data[i,"loc"]<-"Shaanxi"
+  if(data[i,"loc"]=="上海") data[i,"loc"]<-"Shanghai"
+  if(data[i,"loc"]=="四川") data[i,"loc"]<-"Sichuan"
+  if(data[i,"loc"]=="天津") data[i,"loc"]<-"Tianjin"
+  if(data[i,"loc"]=="香港") data[i,"loc"]<-"Hongkong"
+  if(data[i,"loc"]=="云南") data[i,"loc"]<-"Yunnan"
+  if(data[i,"loc"]=="浙江") data[i,"loc"]<-"Zhejiang"
+  if(data[i,"loc"]=="重庆") data[i,"loc"]<-"Chongqing"
+  if(data[i,"loc"]=="海外") data[i,"loc"]<-"Oversea"
+}
+data_buy<-data[which(data$buy_ornot==1),]#
+data_notbuy<-data[which(data$buy_ornot==0),]#
+x<-2:8#
+data_notbuy<-data_notbuy[,-x]#删除所有NA数据
+data_buy[which(data_buy$activity=="没有"),7]<-0
+data_buy[which(data_buy$activity=="有"),7]<-1
+data_buy[which(data_buy$excecon=="有"),8]<-1
+data_buy[which(data_buy$excecon=="没有"),8]<-0
+
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对消费产品种类进行的清洗
+index.type<-as.vector(unlist(strsplit(data_buy[1,4],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.type<-c(index.type,as.vector(unlist(strsplit(data_buy[i,4],split="┋"))))
+}
+#table(index.type)#寻找type中有什么门类
+#其他〖无〗表示该人在其他的门类中并未选购
+
+ind.cp<-which(str_detect(data_buy$type,"电脑办公")==TRUE)
+ind.clo<-which(str_detect(data_buy$type,"服饰鞋靴")==TRUE)
+ind.furn<-which(str_detect(data_buy$type,"家居百货")==TRUE)
+ind.elefac<-which(str_detect(data_buy$type,"家用电器")==TRUE)
+ind.makeup<-which(str_detect(data_buy$type,"美妆个护")==TRUE)
+ind.food<-which(str_detect(data_buy$type,"食品生鲜")==TRUE)
+ind.tek<-which(str_detect(data_buy$type,"手机数码")==TRUE)
+ind.book<-which(str_detect(data_buy$type,"图书文娱")==TRUE)
+
+ind.other.bag<-which(str_detect(data_buy$type,"其他〖包包 进口药品 抱枕 运动装备〗")==TRUE)
+#认为包包，进口药品，抱枕都属于家居百货，运动装备属于服饰鞋靴
+if(sum(ind.furn==ind.other.bag)==0) ind.furn<-c(ind.furn,ind.other.bag)
+if(sum(ind.clo==ind.other.bag)==0) ind.clo<-c(ind.clo,ind.other.bag)
+
+ind.other.surr<-which(str_detect(data_buy$type,"其他〖fpx冠军周边〗")==TRUE)
+#认为冠军周边属于图书文娱
+if(sum(ind.book==ind.other.surr)==0) ind.book<-c(ind.book,ind.other.surr)
+
+#其他〖宝宝的尿不湿和睡袋 玩具〗 该数据已经购买过家居百货因此不需要添加
+
+ind.other.toy<-which(str_detect(data_buy$type,"其他〖孩子的玩具〗")==TRUE)
+#认为孩子的玩具属于属于家居百货
+if(sum(ind.furn==ind.other.toy)==0) ind.furn<-c(ind.furn,ind.other.toy)
+
+ind.other.fitness<-which(str_detect(data_buy$type,"其他〖健身用品〗")==TRUE)
+#认为健身用品属于属于家居百货
+if(sum(ind.furn==ind.other.fitness)==0) ind.furn<-c(ind.furn,ind.other.fitness)
+
+#猫粮属于家居百货但该人已在家居百货中归类，不需再次添加
+
+ind.other.model<-which(str_detect(data_buy$type,"其他〖模型〗")==TRUE)
+#认为模型属于属于文娱
+if(sum(ind.book==ind.other.model)==0) ind.book<-c(ind.book,ind.other.model)
+
+ind.other.vedio<-which(str_detect(data_buy$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book==ind.other.vedio)==0) ind.book<-c(ind.book,ind.other.vedio)
+
+ind.other.vedio<-which(str_detect(data_buy$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book==ind.other.vedio)==0) ind.book<-c(ind.book,ind.other.vedio)
+
+ind.other.bat<-which(str_detect(data_buy$type,"其他〖网球拍〗")==TRUE)
+#认为网球拍属于属于家居百货
+if(sum(ind.furn==ind.other.bat)==0) ind.furn<-c(ind.furn,ind.other.bat)
+
+ind.other.class<-which(str_detect(data_buy$type,"其他〖线上课程〗")==TRUE)
+#认为线上课程属于属于电脑办公
+if(sum(ind.cp==ind.other.class)==0) ind.cp<-c(ind.cp,ind.other.class)
+
+ind.other.case<-which(str_detect(data_buy$type,"其他〖行李箱〗")==TRUE)
+#认为行李箱属于属于家居百货
+if(sum(ind.furn==ind.other.case)==0) ind.furn<-c(ind.furn,ind.other.case)
+
+ind.other.medi<-which(str_detect(data_buy$type,"其他〖医疗保健〗")==TRUE)
+#认为医疗保健属于属于家居百货
+if(sum(ind.furn==ind.other.medi)==0) ind.furn<-c(ind.furn,ind.other.medi)
+
+ind.type<-list(ind.book,ind.clo,ind.cp,ind.elefac,ind.food,ind.furn,ind.makeup)
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对为谁购物的数据清洗
+index.for<-as.vector(unlist(strsplit(data_buy[1,5],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.for<-c(index.for,as.vector(unlist(strsplit(data_buy[i,5],split="┋"))))
+}
+#table(index.for)#寻找for中有什么门类
+ind.pet<-which(str_detect(data_buy[,5],"宠物")==TRUE)
+ind.parent<-which(str_detect(data_buy[,5],"父母")==TRUE)
+ind.lover<-which(str_detect(data_buy[,5],"恋人或伴侣")==TRUE)
+ind.relative<-which(str_detect(data_buy[,5],"其他亲朋好友")==TRUE)
+ind.self<-which(str_detect(data_buy[,5],"自己")==TRUE)
+ind.kid<-which(str_detect(data_buy[,5],"其他〖孩子〗")==TRUE)
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖家人（孩子）〗")==TRUE))
+#老人几乎不购物，子女当然就是孩子
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖子女〗")==TRUE))
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖孩子！怎么能漏了这个选项〗")==TRUE))
+
+ind.other.wash<-which(str_detect(data_buy[,5],"其他〖寝室买洗衣液〗")==TRUE)
+#认为洗衣液是为了给自己用
+if(sum(ind.self==ind.other.wash)==0) ind.self<-c(ind.self,ind.other.wash)
+
+ind.for<-list(ind.pet,ind.parent,ind.lover,ind.relative,ind.self,ind.kid)
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对购物平台进行数据清洗
+index.plat<-as.vector(unlist(strsplit(data_buy[1,6],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.plat<-c(index.plat,as.vector(unlist(strsplit(data_buy[i,6],split="┋"))))
+}
+#table(index.plat)#寻找for中有什么门类
+ind.jingdong<-which(str_detect(data_buy$plat,"京东")==TRUE)
+ind.pindd<-which(str_detect(data_buy$plat,"拼多多")==TRUE)
+ind.mall<-which(str_detect(data_buy$plat,"商场")==TRUE)
+ind.suning<-which(str_detect(data_buy$plat,"苏宁")==TRUE)
+ind.taobao<-which(str_detect(data_buy$plat,"淘宝（天猫）")==TRUE)
+ind.apple<-which(str_detect(data_buy$plat,"其他〖Apple 官网〗")==TRUE)
+ind.dangdang<-which(str_detect(data_buy$plat,"其他〖当当〗")==TRUE)
+ind.du<-which(str_detect(data_buy$plat,"其他〖毒〗")==TRUE)
+ind.fandeng<-which(str_detect(data_buy$plat,"其他〖樊登读书〗")==TRUE)
+ind.kaola<-which(str_detect(data_buy$plat,"其他〖网易考拉〗")==TRUE)
+ind.yanxuan<-which(str_detect(data_buy$plat,"其他〖网易严选〗")==TRUE)
+ind.weidian<-which(str_detect(data_buy$plat,"其他〖微店〗")==TRUE)
+ind.wph<-which(str_detect(data_buy$plat,"其他〖唯品会〗")==TRUE)
+ind.onclass<-which(str_detect(data_buy$plat,"其他〖线上课程网站〗")==TRUE)
+
+ind.plat<-list(ind.jingdong,ind.pindd,ind.mall,ind.suning,ind.taobao,ind.apple,
+               ind.dangdang,ind.du,ind.fandeng,ind.kaola,ind.yanxuan,ind.weidian,
+              ind.wph,ind.onclass)
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+pat<-read.csv("C:/Users/mac/Desktop/data of province by 20 years.csv",header=TRUE)
+#head(pat)
+x<-10:21
+y<-32:33
+pat<-pat[-y,-x]
+colnames(pat)<-c("地区","2020","2019","2018","2017","2016","2015","2014","2013")
+indices<-as.vector(pat[,2])
+for(i in 3:ncol(pat)) indices<-c(indices,pat[,i])
+testpat<-data.frame(indices)
+#上述代码我们从国家统计网站中下载近几年各省的年均居民可支配收入
+#以此想得到我国居民收入的大致分布情况
+a<-20000;b<-29400
+alpha<-1+(a/(b-a))^2;beta<-a/(b-a)^2
+set.seed(10)
+r<-rgamma(length(indices),alpha,beta)
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(indices,freq=FALSE)
+lines(density(indices))
+qqplot(indices,r)
+abline(a=0,b=1)
+
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#利用上述得到的分布对“敏感数据”：income进行赋值
+classi<-c("3000元以下","3000~5000元","5000~10000元","10000~20000元","20000元以上")
+for(i in 1:nrow(data_buy)){
+  j<-which(classi==data_buy[i,13])
+  if(j==1){
+    money<-rgamma(1,alpha,12*beta)
+    while(money>=3000||money<=0) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==2){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<3000||money>5000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==3){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<5000||money>10000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==4){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<10000||money>20000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else{
+    money<-runif(1,20000,40000)
+    data_buy[i,13]<-money
+  }
+}
+data_buy$income<-as.numeric(data_buy$income)
+
+for(i in 1:nrow(data_notbuy)){
+  j<-which(classi==data_notbuy[i,6])
+  if(j==1){
+    money<-rgamma(1,alpha,12*beta)
+    while(money>=3000||money<=0) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==2){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<3000||money>5000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==3){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<5000||money>10000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==4){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<10000||money>20000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else{
+    money<-runif(1,20000,40000)
+    data_notbuy[i,6]<-money
+  }
+}
+data_notbuy$income<-as.numeric(data_notbuy$income)
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#对职业进行清洗归类
+#我们利用table函数能够发现样本中学生的数量大约占有77%
+#sum(data$job=="全日制学生")/nrow(data)
+#因此我们对职业的分类目前先分为学生与非学生两类
+ind.buy.stu<-which(data_buy$job=="全日制学生")
+ind.buy.othjob<-which(data_buy$job!="全日制学生")
+ind.notbuy.stu<-which(data_notbuy$job=="全日制学生")
+ind.notbuy.othjob<-which(data_notbuy$job!="全日制学生")
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#这是对age的清洗
+#类似于职业的统计方法我们可以看到18~25岁的比例较大
+ind.buy.18<-which(data_buy$age=="18~25岁")
+ind.buy.othage<-which(data_buy$age!="18~25岁")
+ind.notbuy.18<-which(data_notbuy$age=="18~25岁")
+ind.notbuy.othage<-which(data_notbuy$age!="18~25岁")
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#支持
+dictionary.sup<-c("薅到爽到，支持！","其他〖便宜了就可以〗","其他〖趁着低价买自己需要的衣服〗",
+                  "其他〖趁着活动屯货〗","其他〖囤下日用品，刚需。还挺好〗","其他〖还是便宜了一些〗",
+                  "其他〖今年算是理性消费，个人很满意〗","其他〖买了想买的东西，比平时便宜了一些〗",
+                  "其他〖买了自己需要的东西〗","其他〖满减就算优惠〗",
+                  "其他〖确实有一些优惠，不过也是找一个让自己心安理得买买买的机会〗","其他〖有些东西确实可以买〗"
+                  ,"其他〖有需要〗")
+#反对
+dictionary.obj<-c("买了不必要的东西...","其他〖保持理智〗","其他〖二级价格歧视〗",
+                  "其他〖盖楼、砍价这类活动费时费力，没意义〗","其他〖规则太繁杂琐碎，兴致全无〗"
+                  ,"其他〖耗时〗","其他〖活动力度在某些商品体现不明显，套路太多〗","其他〖多余〗",
+                  "其他〖少一些套路，多一些真诚的优惠吧〗","其他〖虽然还是便宜了，但好像越来越没意思了。。。〗",
+                  "其他〖淘宝的活动令人恶心，选京东了〗","其他〖我很穷〗","其他〖鞋的质量有问题〗",
+                  "其他〖优惠券的使用规则太麻烦了〗","其他〖越来越假〗")
+#中立
+dictionary.neu<-c("静待霉霉，与我无瓜~ ","其他〖待时而动〗",
+                  "其他〖还好，如果有需要的会去买，没有需要不太会参与，因为大多数其实没有很大的折扣感觉〗"
+                  ,"其他〖还好〗","其他〖还是比往常更便宜点，但也没有特别爽到〗","其他〖还行，吸引力越来越小〗"
+                  ,"其他〖还行〗","其他〖即使是双11，也要理性购物〗","其他〖就那样，比较无所谓〗",
+                  "其他〖可能比平时便宜一丢丢，但不想花太多精力〗","其他〖买到想买的东西，但打折力度并不大〗",
+                  "其他〖买需要的〗","其他〖虽然有便宜，买的也都是想要的，但希望套路简单点〗",
+                  "其他〖痛并快乐着〗","其他〖无〗","其他〖无所谓〗","其他〖小小参与一下〗",
+                  "其他〖一般吧，是省了点但没爽〗","其他〖有需要的就买，没需要的就不买〗",
+                  "其他〖有需要就买点，不用刻意〗","其他〖有要买的东西就参加，没有要买的就不参加〗",
+                  "其他〖正常促销，淡定就好〗","其他〖正常购物〗",
+                  "其他〖只买家里需要的日用品，虽然不便宜，但是红包抵扣多，〗","其他〖中立态度〗")
+data_buy<-cbind(data_buy,atti=NA)
+for(i in 1:nrow(data_buy)){
+  if(match(data_buy[i,"rem"],dictionary.sup,nomatch=FALSE)!=0){
+    data_buy[i,"atti"]<-"sup"
+  }else if(match(data_buy[i,"rem"],dictionary.neu,nomatch=FALSE)!=0){
+    data_buy[i,"atti"]<-"neu"
+  }else{
+    data_buy[i,"atti"]<-"obj"
+  }
+}
+```
+
+```{r,echo=FALSE,warning=FALSE}
+dictionary.n.sup<-c("其他〖促进消费，值得肯定〗","其他〖还好吧，促进消费挺好的〗")
+dictionary.n.neu<-c("其他〖没啥买的〗","其他〖有需要才买，她的优惠我感觉都一样〗"
+                    ,"静待霉霉，与我无瓜~")
+dictionary.n.obj<-c("其他〖经验证，双十一比平时还贵〗",
+                    "其他〖一年不如一年，尤其今年抬价再打折，有几个电器比我3年前买的还贵，没意思〗")
+#没买的人说"薅到爽"和"买了不必要的"肯定是乱写问卷,标签记为lier
+dictionary.lier<-c("薅到爽到，支持！","买了不必要的东西...")
+data_notbuy<-cbind(data_notbuy,atti=NA)
+for(i in 1:nrow(data_notbuy)){
+  if(match(data_notbuy[i,"rem"],dictionary.n.sup,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"sup"
+  }else if(match(data_notbuy[i,"rem"],dictionary.n.neu,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"neu"
+  }else if(match(data_notbuy[i,"rem"],dictionary.n.obj,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"obj"
+  }else{
+    data_notbuy[i,"atti"]<-"lier"
+  }
+}
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#这是对实际消费和预期消费的数据清洗,新建一列名为calm列,该列的赋值只是作为指标区分
+#数值大小没有很强的实际含义,正百单位的表示冲动消费,10以内的数据表示收支平衡
+#负值代表预期消费高于实际消费
+data_buy<-cbind(data_buy,calm=NA)
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<-0
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<-500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-1500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-4500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-9500
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -500
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<-1
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-1000
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-3000
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-7000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -1500
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -1000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-2
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-2000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-5000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -4500
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -3000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<- -2000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-3
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-4000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -9500
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -7000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<- -5000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<- -4000
+  }else{
+    data_buy[i,"calm"]<-4
+  }
+}
+```
+
+# 双十一参与购物人群数据分析
+
+
+
+## 预期消费与实际消费
+
+
+### 初步分析
+
+
+
+
+
+### 预期消费\&实际消费与收入的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#library(ggplot2)
+#利用calm栏对实际消费和预期消费关系与其他各变量之间的关系
+#粗看数据
+
+data_buy$calm<-as.numeric(data_buy$calm)
+res<-table(data_buy$calm)
+
+
+#data_buy$calm<-as.character(data_buy$calm)#这一步转化是为了画出来饼图(效果不好)
+#ggplot(data_buy,aes(x=calm,fill=calm))+
+#  geom_bar()+coord_polar(theta="y",start=0)+
+#  labs(x="",y="")+ggtitle("proportion of expcon&actcon")+
+#  theme(plot.title=element_text(hjust=0.5))
+#为了画牛眼图但是画图效果不好
+#ggplot(data_buy,aes(x=calm,fill=calm))+
+#  geom_bar()+coord_polar(theta="y",start=0)+
+#  labs(x="",y="")+ggtitle("proportion of expcon&actcon")+
+#  theme(plot.title=element_text(hjust=0.5))
+
+income<-data_buy$income
+con<-data_buy$calm
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(res)
+abline(v=8.5,col="red")
+abline(v=14.5,col="red")#两条红线将三组人群进分割
+plot(income,con)
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+#data_buy<-cbind(data_buy,incometag=NA)
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"income"]<3000){
+    data_buy[i,"incometag"]<-"3000RMB below"
+  }else if(data_buy[i,"income"]>3000&data_buy[i,"income"]<5000){
+    data_buy[i,"incometag"]<-"3000~5000RMB"
+  }else if(data_buy[i,"income"]>5000&data_buy[i,"income"]<10000){
+    data_buy[i,"incometag"]<-"5000~10000RMB"
+  }else if(data_buy[i,"income"]>10000&data_buy[i,"income"]<20000){
+    data_buy[i,"incometag"]<-"10000~20000RMB"
+  }else{
+    data_buy[i,"incometag"]<-"20000RMB above"
+  }
+}
+data_buy$calm<-as.character(data_buy$calm)
+
+ggplot(data_buy,aes(x=incometag,fill=as.factor(calm)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+
+### 预期消费\&实际消费与是否参与活动以及使用花呗\&白条的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+data_buy$calm<-as.character(data_buy$calm)
+#参加活动已经用0,1表示是否参加，同理于是否使用花呗白条
+
+ggplot(data_buy,aes(x=calm,fill=as.factor(activity)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#data_buy$calm<-as.numeric(data_buy$calm)
+#activity<-data_buy$activity
+#con<-data_buy$calm
+#plot(activity,con)
+
+ggplot(data_buy,aes(x=calm,fill=as.factor(excecon)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+```
+
+
+
+###预期消费\&实际消费与地域之间的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy$calm<-as.numeric(data_buy$calm)
+
+ggplot(data_buy,aes(x=loc,fill=as.factor(calm)))+geom_bar()+theme(axis.text.x = element_text(angle=60, hjust=1))+xlab("region")+ylab("counts")
+
+
+```
+
+
+
+### 预期消费\&实际消费与为谁消费\&购买种类之间的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#以下分析预期消费&实际消费与为谁消费&购买种类之间的关系
+suppressMessages(library(gridExtra))
+data_buy$calm<-as.character(data_buy$calm)
+data_buy_pet<-data_buy[ind.pet,]
+data_buy_parent<-data_buy[ind.parent,]
+data_buy_lover<-data_buy[ind.lover,]
+data_buy_relative<-data_buy[ind.relative,]
+data_buy_self<-data_buy[ind.self,]
+data_buy_kid<-data_buy[ind.kid,]
+
+p.pet<-ggplot(data_buy_pet,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent<-ggplot(data_buy_parent,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover<-ggplot(data_buy_lover,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative<-ggplot(data_buy_relative,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self<-ggplot(data_buy_self,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid<-ggplot(data_buy_kid,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.pet,p.parent,p.lover,p.relative,p.self,p.kid,ncol=2)
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy_book<-data_buy[ind.book,]
+data_buy_clo<-data_buy[ind.clo,]
+data_buy_cp<-data_buy[ind.cp,]
+data_buy_elefac<-data_buy[ind.elefac,]
+data_buy_food<-data_buy[ind.food,]
+data_buy_furn<-data_buy[ind.furn,]
+data_buy_makeup<-data_buy[ind.makeup,]
+
+p.book<-ggplot(data_buy_book,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo<-ggplot(data_buy_clo,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp<-ggplot(data_buy_cp,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("couple")+theme(plot.title=element_text(hjust=0.5))
+p.elefac<-ggplot(data_buy_elefac,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food<-ggplot(data_buy_food,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn<-ggplot(data_buy_furn,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup<-ggplot(data_buy_makeup,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book,p.clo,p.cp,p.elefac,p.food,p.furn,p.makeup,ncol=3)
+
+```
+
+
+
+## 所购商品的种类
+
+### 初步分析
+
+```{r,echo=FALSE,warning=FALSE}
+#种类
+type_kind <- data.frame(kind = NA)
+type_kind[1:73, 1] <- "ind.book"
+type_kind[74:292, 1] <- "ind.clo"
+type_kind[293:314, 1] <- "ind.cp"
+type_kind[315:349, 1] <- "ind.elefac"
+type_kind[349:435, 1] <- "ind.food"
+type_kind[436:571, 1] <- "ind.furn"
+type_kind[572:762, 1] <- "ind.makeup"
+
+
+#ggplot(type_kind, aes(x = kind, fill = kind)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("type of items") + ylab("counts")
+
+
+
+
+ggplot(type_kind, aes(x = kind, fill = kind)) + geom_bar() + coord_polar(theta = "y", start = 0)
+
+
+```
+
+
+
+### 所购商品种类与平台的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#在不同平台的购买力
+type_plat <- data.frame(plat = NA)
+type_plat[1:81, 1] <- "ind.jingdong"
+type_plat[82:98, 1] <- "ind.pindd"
+type_plat[99:108, 1] <- "ind.mall"
+type_plat[109:115, 1] <- "ind.suning"
+type_plat[116:399, 1] <- "ind.taobao"
+type_plat[400, 1] <- "ind.apple"
+type_plat[401, 1] <- "ind.dangdang"
+type_plat[402:403, 1] <- "ind.du"
+type_plat[404, 1] <- "ind.fandeng"
+type_plat[405:406, 1] <- "ind.kaola"
+type_plat[407, 1] <- "ind.yanxuan"
+type_plat[408:409, 1] <- "ind.weidian"
+type_plat[410:411, 1] <- "ind.wph"
+type_plat[412, 1] <- "ind.onclass"
+
+
+ggplot(type_plat , aes(x = plat, fill = plat)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("purchasing power of different platforms") + ylab("counts")
+
+
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#平台与种类
+
+type_kp <- merge(x = type_kind, y = type_plat, by = NULL)
+q1<-ggplot(type_kp, aes(x = plat, fill = as.factor(kind))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("distribution of different types in different platforms") + ylab("counts")
+
+
+
+q2<-ggplot(type_kp, aes(x = kind, fill = as.factor(plat))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("Best selling degree of different types of products on various platforms") + ylab("counts")
+
+grid.arrange(q1,q2,ncol=2)
+
+```
+
+
+
+### 所有商品种类与为谁而买的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#种类与为谁购买之间的关系
+temp <- data.frame(forwho=NA)
+temp[1:10, 1] <- "pet"
+temp[11:99, 1] <- "parent"
+temp[100:163, 1] <- "lover"
+temp[164:201, 1] <- "relative"
+temp[202:496, 1] <- "self"
+temp[497:506, 1] <- "kid"
+
+
+q3<-ggplot(temp, aes(x = forwho, fill = forwho)) + geom_bar() + coord_polar(theta = "y", start = 0) + ylab("")
+
+
+
+type_tp <- merge(x = type_kind, y = temp, by = NULL)
+
+q4<-ggplot(type_tp, aes(x = kind, fill = as.factor(forwho))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("relationship between types and buy for whom") + ylab("counts")
+grid.arrange(q3,q4,ncol=2)
+
+
+```
+
+
+
+### 所购商品种类内部的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#种类的内部联系
+a1 <- do.call(rbind, Map(data.frame, ind.clo=ind.clo, ind.makeup=ind.makeup))
+
+q5<-ggplot(a1, aes(x=ind.clo, y=ind.makeup)) + geom_point()  + theme(plot.title = element_text(hjust = 0.5))  
+
+
+a2 <- do.call(rbind, Map(data.frame, ind.clo=ind.clo, ind.furn=ind.furn))
+
+q6<-ggplot(a2, aes(x=ind.clo, y=ind.furn)) + geom_point()  + theme(plot.title = element_text(hjust = 0.5))  
+
+
+a3 <- do.call(rbind, Map(data.frame, ind.makeup=ind.makeup, ind.furn=ind.furn))
+
+q7<-ggplot(a3, aes(x=ind.makeup, y=ind.furn)) + geom_point() + theme(plot.title = element_text(hjust = 0.5))  
+
+grid.arrange(q5,q6,q7,ncol=3)
+
+```
+
+
+
+## 为谁而购物
+
+### 初步分析
+
+```{r,echo=FALSE,warning=FALSE}
+#接下来分析为谁购物与其他变量的关系
+temp<-data.frame(forwho=NA)
+temp[1:10,1]<-"pet"
+temp[11:99,1]<-"parent"
+temp[100:163,1]<-"lover"
+temp[164:201,1]<-"relative"
+temp[202:496,1]<-"self"
+temp[497:506,1]<-"kid"
+
+ggplot(temp,aes(x=forwho,fill=forwho))+geom_bar()+coord_polar(theta="y",start=0)+ylab("")
+```
+
+
+### 为谁而购物与折扣活动的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#为自己消费人数占绝对优势
+pat_foractivity1<-rbind(table(data_buy_pet$activity),table(data_buy_parent$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_lover$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_relative$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_self$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_kid$activity))
+rownames(pat_foractivity1)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_foractivity1)<-c("no activity","join in activity")
+
+
+pat_foractivity2<-cbind(table(data_buy_pet$activity),table(data_buy_parent$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_lover$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_relative$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_self$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_kid$activity))
+colnames(pat_foractivity2)<-c("pet","parent","lover","relative","self","kid")
+rownames(pat_foractivity2)<-c("no activity","join in activity")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_foractivity1,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("topright",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=2)
+
+barplot(pat_foractivity2,beside=TRUE,col=c("pink","green"))
+legend("topleft",fill=c("pink","green"),legend=c("no activity","join in activity"))
+
+
+```
+
+
+### 为谁而购物与是否使用花呗\&白条的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+pat_forexcecon1<-rbind(table(data_buy_pet$excecon),table(data_buy_parent$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_lover$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_relative$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_self$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_kid$excecon))
+
+rownames(pat_forexcecon1)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_forexcecon1)<-c("no use huabei","use huabei")
+
+pat_forexcecon2<-cbind(table(data_buy_pet$excecon),table(data_buy_parent$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_lover$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_relative$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_self$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_kid$excecon))
+colnames(pat_forexcecon2)<-c("pet","parent","lover","relative","self","kid")
+rownames(pat_forexcecon2)<-c("no use of huabei","use of huabei")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_forexcecon1,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("top",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=2)
+barplot(pat_forexcecon2,beside=TRUE,col=c("pink","green"))
+legend("top",fill=c("pink","green"),legend=c("no use of huabei","use of huabei"))
+
+
+```
+
+### 为谁而购物与收入的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#收入更多的人是否会为多群体购买呢？
+data_buy$numoftype<-0
+#data_buy$numtype表示购买人群个数
+data_buy[ind.type[[1]],"numoftype"]<-data_buy[ind.type[[1]],"numoftype"]+1
+data_buy[ind.type[[2]],"numoftype"]<-data_buy[ind.type[[2]],"numoftype"]+1
+data_buy[ind.type[[3]],"numoftype"]<-data_buy[ind.type[[3]],"numoftype"]+1
+data_buy[ind.type[[4]],"numoftype"]<-data_buy[ind.type[[4]],"numoftype"]+1
+data_buy[ind.type[[5]],"numoftype"]<-data_buy[ind.type[[5]],"numoftype"]+1
+data_buy[ind.type[[6]],"numoftype"]<-data_buy[ind.type[[6]],"numoftype"]+1
+
+#plot(data_buy$numoftype,data_buy$income)
+data_buy$numoftype<-as.character(data_buy$numoftype)
+
+ggplot(data_buy,aes(x=numoftype,y=income,fill=numoftype))+stat_summary(fun=mean,geom="point",shape=5,size=4)+geom_boxplot()+xlab("number of forwhom")+scale_fill_discrete(name = "number of forwhom")
+
+
+suppressMessages(library(wordcloud2))
+
+
+data_kid<-data_buy[ind.kid,]
+
+p1<-ggplot(data_kid,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="counts")+
+  ggtitle("buy for kids")+theme(plot.title=element_text(hjust=0.5))
+
+
+data_self<-data_buy[ind.self,]
+p2<-ggplot(data_self,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="counts")+
+  ggtitle("buy for self")+theme(plot.title=element_text(hjust=0.5))
+
+data_parent<-data_buy[ind.parent,]
+p3<-ggplot(data_parent,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="income")+
+  ggtitle("buy for parents")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p1,p2,p3,ncol=3)
+
+
+```
+
+
+### 为谁而购物与地区的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#地区分布是否影响购买人群不同
+data_buy$loctag<-"识别是否发达"
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"loc"]=="Beijing"|data_buy[i,"loc"]=="Shanghai"|data_buy[i,"loc"]=="Guangdong"|data_buy[i,"loc"]=="Zhejiang"|data_buy[i,"loc"]=="Jiangsu"){
+    data_buy[i,"loctag"]<-"developed cities"
+  }else{data_buy[i,"loctag"]<-"developing cities"}
+}
+data_buy_pet<-data_buy[ind.pet,]
+data_buy_parent<-data_buy[ind.parent,]
+data_buy_lover<-data_buy[ind.lover,]
+data_buy_relative<-data_buy[ind.relative,]
+data_buy_self<-data_buy[ind.self,]
+data_buy_kid<-data_buy[ind.kid,]
+pat_forloc<-rbind(table(data_buy_pet$loctag),table(data_buy_parent$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_lover$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_relative$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_self$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_kid$loctag))
+
+rownames(pat_forloc)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_forloc)<-c("developed cities","developing cities")
+
+
+barplot(pat_forloc,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("topright",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=3)
+
+
+```
+
+
+
+## 购物平台
+
+### 初步分析
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#下面是对平台信息与其他信息之间关系的数据分析
+data_buy$calm<-as.character(data_buy$calm)
+data_buy_jingdong<-data_buy[ind.jingdong,]
+data_buy_pindd<-data_buy[ind.pindd,]
+data_buy_mall<-data_buy[ind.mall,]
+data_buy_suning<-data_buy[ind.suning,]
+data_buy_taobao<-data_buy[ind.taobao,]
+#data_buy_apple<-data_buy[ind.apple,]
+#data_buy_dangdang<-data_buy[ind.dangdang,]
+#data_buy_du<-data_buy[ind.du,]
+#data_buy_fandeng<-data_buy[ind.fandeng,]
+#data_buy_kaola<-data_buy[ind.kaola,]
+#data_buy_yanxuan<-data_buy[ind.yanxuan,]
+#data_buy_weidian<-data_buy[ind.weidian,]
+#data_buy_wph<-data_buy[ind.wph,]
+#data_buy_onclass<-data_buy[ind.onclass,]
+
+p.jingdong<-ggplot(data_buy_jingdong,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.pindd<-ggplot(data_buy_pindd,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Pin DuoDuo")+theme(plot.title=element_text(hjust=0.5))
+p.mall<-ggplot(data_buy_mall,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Mall")+theme(plot.title=element_text(hjust=0.5))
+p.suning<-ggplot(data_buy_suning,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Suning")+theme(plot.title=element_text(hjust=0.5))
+p.taobao<-ggplot(data_buy_taobao,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+#p.apple<-ggplot(data_buy_apple,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("苹果")+theme(plot.title=element_text(hjust=0.5))
+#p.dangdang<-ggplot(data_buy_dangdang,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("当当")+theme(plot.title=element_text(hjust=0.5))
+#p.du<-ggplot(data_buy_du,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("毒APP")+theme(plot.title=element_text(hjust=0.5))
+#p.fandeng<-ggplot(data_buy_fandeng,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("樊登")+theme(plot.title=element_text(hjust=0.5))
+#p.kaola<-ggplot(data_buy_kaola,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("考拉")+theme(plot.title=element_text(hjust=0.5))
+#p.yanxuan<-ggplot(data_buy_yanxuan,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("网易严选")+theme(plot.title=element_text(hjust=0.5))
+#p.weidian<-ggplot(data_buy_weidian,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("微店")+theme(plot.title=element_text(hjust=0.5))
+#p.wph<-ggplot(data_buy_wph,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("唯品会")+theme(plot.title=element_text(hjust=0.5))
+#p.onclass<-ggplot(data_buy_onclass,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("在线课程")+theme(plot.title=element_text(hjust=0.5))
+#这里画图的时候由于当当，苹果，毒，樊登，考拉，网易严选，微店，唯品会，在线课程的人数过少（只有1~2个）因此忽略这些样本
+grid.arrange(p.jingdong,p.pindd,p.mall,p.suning,p.taobao,ncol=2)
+
+
+```
+
+
+
+### 购物平台与收入的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+p.hist.jingdong<-ggplot(data_buy_jingdong,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Jing Dong")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.pindd<-ggplot(data_buy_pindd,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Pin DuoDuo")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.mall<-ggplot(data_buy_mall,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Mall")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.suning<-ggplot(data_buy_suning,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Suning")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.taobao<-ggplot(data_buy_taobao,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Tao Bao")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+grid.arrange(p.hist.jingdong,p.hist.pindd,p.hist.mall,p.hist.suning,p.hist.taobao,ncol=2)
+
+jingdong_income<-mean(data_buy_jingdong$income)
+taobao_income<-mean(data_buy_taobao$income)
+
+```
+
+
+
+### 购物平台与是否参加活动与是否使用花呗\&白条的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#下面统计各平台中参加活动（砍价、盖楼）&是否使用花呗白条的情况
+patt_forexcecon1<-rbind(table(data_buy_jingdong$excecon),table(data_buy_pindd$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_mall$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_suning$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_taobao$excecon))
+
+
+rownames(patt_forexcecon1)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(patt_forexcecon1)<-c("no  huabei","use of huabei")
+
+
+
+patt_foractivity1<-rbind(table(data_buy_jingdong$activity),table(data_buy_pindd$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_mall$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_suning$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_taobao$activity))
+
+
+rownames(patt_foractivity1)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(patt_foractivity1)<-c("no activity","join activity")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(patt_forexcecon1,beside=TRUE,col=c("red","blue","green","orange","pink"))
+legend("top",fill=c("red","blue","green","orange","pink"),legend=c("JD","Pin DD","Mall","Suning","Tao Bao"),ncol=2)
+abline(h=6,col="purple")
+barplot(patt_foractivity1,beside=TRUE,col=c("red","blue","green","orange","pink"))
+legend("topright",fill=c("red","blue","green","orange","pink"),legend=c("JD","Pin DD","Mall","Suning","Tao Bao"),ncol=2)
+abline(h=5,col="purple")
+
+
+```
+
+
+
+### 平台购买量与是否参加活动的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#平台购买量与是否参加活动的关系
+suppressMessages(library(gridExtra))
+data_buy[which(data_buy$activity == 0), 7] <- "NO"
+data_buy[which(data_buy$activity == 1), 7] <- "YES"
+data_buy[which(data_buy$excecon == 1), 8] <- "NO"
+data_buy[which(data_buy$excecon == 0), 8] <- "Yes"
+
+data_buy_jingdong <- data_buy[ind.jingdong,]
+data_buy_pindd <- data_buy[ind.pindd,]
+data_buy_mall <- data_buy[ind.mall,]
+data_buy_suning <- data_buy[ind.suning,]
+data_buy_taobao <- data_buy[ind.taobao,]
+
+
+p.jingdong <- ggplot(data_buy_jingdong, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join in activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("jingdong") + theme(plot.title=element_text(hjust=0.5))
+
+p.pindd <- ggplot(data_buy_pindd, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join in activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("pindd") + theme(plot.title=element_text(hjust=0.5))
+
+p.mall <- ggplot(data_buy_mall, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("mall") + theme(plot.title=element_text(hjust=0.5))
+
+p.suning <- ggplot(data_buy_suning, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("suning") + theme(plot.title=element_text(hjust=0.5))
+
+p.taobao <- ggplot(data_buy_taobao, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("taobao") + theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.jingdong, p.pindd, p.mall, p.suning, p.taobao, ncol=2)
+
+
+
+```
+
+
+
+### 平台购买量与是否使用花呗\&白条的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#平台购买量与是否允许使用花呗的关系
+suppressMessages(library(gridExtra))
+
+
+p.jingdong <- ggplot(data_buy_jingdong, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("jingdong") + theme(plot.title=element_text(hjust=0.5))
+
+p.pindd <- ggplot(data_buy_pindd, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("pindd") + theme(plot.title=element_text(hjust=0.5))
+
+p.mall <- ggplot(data_buy_mall, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("mall") + theme(plot.title=element_text(hjust=0.5))
+
+p.suning <- ggplot(data_buy_suning, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("suning") + theme(plot.title=element_text(hjust=0.5))
+
+p.taobao <- ggplot(data_buy_taobao, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("taobao") + theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.jingdong, p.pindd, p.mall, p.suning, p.taobao, ncol=2)
+
+
+
+```
+
+
+
+### 购买平台与评价的关系
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#下面来分析各平台的评价情况，同时来用收入（？）来考虑评价是否对平台的收入有影响
+
+data_platandatti<-cbind(table(data_buy_jingdong$atti),table(data_buy_pindd$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_mall$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_suning$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_taobao$atti))
+
+colnames(data_platandatti)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+rownames(data_platandatti)<-c("neu","obj","sup")
+
+
+
+
+data_platandatti2<-rbind(table(data_buy_jingdong$atti),table(data_buy_pindd$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_mall$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_suning$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_taobao$atti))
+
+rownames(data_platandatti2)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(data_platandatti2)<-c("neu","obj","sup")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(data_platandatti,beside=TRUE,col=rainbow(3))
+legend("topleft",fill=rainbow(3),legend=c("neu","obj","sup"))
+abline(h=length(data_buy_mall[which(data_buy_mall$atti=="sup"),"atti"]),col="orange")
+barplot(data_platandatti2,beside=TRUE,col=rainbow(5))
+legend("topleft",fill=rainbow(5),legend=c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao"))
+
+
+data_buy_sup<-data_buy[which(data_buy$atti=="sup"),]
+data_buy_neu<-data_buy[which(data_buy$atti=="neu"),]
+data_buy_obj<-data_buy[which(data_buy$atti=="obj"),]
+
+pat_actatti<-rbind(table(data_buy_sup$activity),table(data_buy_neu$activity))
+pat_actatti<-rbind(pat_actatti,table(data_buy_obj$activity))
+
+
+rownames(pat_actatti)<-c("sup","neu","obj")
+colnames(pat_actatti)<-c("no activity","yes activity")
+
+pat_exceatti<-rbind(table(data_buy_sup$excecon),table(data_buy_neu$excecon))
+pat_exceatti<-rbind(pat_exceatti,table(data_buy_obj$excecon))
+
+
+rownames(pat_exceatti)<-c("sup","neu","obj")
+colnames(pat_exceatti)<-c("no  huabei","use huabei")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_actatti,beside=TRUE,col=c("red","blue","green"))
+legend("topright",fill=c("red","blue","green"),legend=c("sup","neu","obj"))
+abline(h=11,col="orange")
+barplot(pat_exceatti,beside=TRUE,col=c("red","blue","green"))
+legend("topright",fill=c("red","blue","green"),legend=c("sup","neu","obj"))
+abline(h=11,col="orange")
+
+
+```
+
+
+
+### 评价与收入的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#支持和反对的人的收入如何呢？
+
+data_sup<-data_buy[which(data_buy$atti=="sup"),]
+data_obj<-data_buy[which(data_buy$atti=="obj"),]
+
+
+p.sup<-ggplot(data_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)
+p.obj<-ggplot(data_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.sup,p.obj,ncol=2)
+
+
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#专注于某个平台中支持和反对的人的收入呢？
+data_buy_jingdong<-data_buy[ind.jingdong,]
+data_buy_taobao<-data_buy[ind.taobao,]
+data_j_sup<-data_buy_jingdong[which(data_buy_jingdong$atti=="sup"),]
+data_j_obj<-data_buy_jingdong[which(data_buy_jingdong$atti=="obj"),]
+data_t_sup<-data_buy_taobao[which(data_buy_taobao$atti=="sup"),]
+data_t_obj<-data_buy_taobao[which(data_buy_taobao$atti=="obj"),]
+
+
+p.j.sup<-ggplot(data_j_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup in JD")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)#JD=京东
+p.j.obj<-ggplot(data_j_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj in JD")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.j.sup,p.j.obj,ncol=2)
+
+
+
+p.t.sup<-ggplot(data_t_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup in TB")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)#TB=淘宝
+p.t.obj<-ggplot(data_t_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj in TB")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.t.sup,p.t.obj,ncol=2)
+
+```
+
+
+
+### 评价与是否超前消费的关系
+
+```{r,echo=FALSE,warning=FALSE}
+
+p.bar.supjingdong<-ggplot(data_j_sup,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Sup of Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.bar.objjingdong<-ggplot(data_j_obj,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Obj of Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.bar.suptaobao<-ggplot(data_t_sup,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Sup pf Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+p.bar.objtaobao<-ggplot(data_t_obj,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Obj of Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.bar.supjingdong,p.bar.objjingdong,p.bar.suptaobao,p.bar.objtaobao,ncol=2)
+
+```
+
+
+
+## 省份
+
+```{r,echo=FALSE,warning=FALSE}
+#地区
+
+
+u1<-ggplot(data_buy, aes(x = loc, fill = loc)) + geom_bar() + 
+theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("region") + ylab("counts")
+
+
+
+u2<-ggplot(data_notbuy, aes(x = loc, fill = loc)) + geom_bar() + 
+theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("region") + ylab("counts")
+grid.arrange(u1,u2,ncol=2)
+```
+
+
+
+## 18-25岁全日制学生(以下简称目标群体)
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#18~25岁全日制学生情况
+#table(data_buy$job, data_buy$age)
+#table(data_notbuy$job, data_notbuy$age)
+
+
+ind.tar <- which(data$job == "全日制学生" & data$age == "18~25岁")
+ind.buy.tar <- which(data_buy$job == "全日制学生" & data_buy$age == "18~25岁")
+ind.notbuy.tar <- which(data_notbuy$job == "全日制学生" & data_notbuy$age == "18~25岁")
+data_tar <- data[ind.tar,]
+data_buytar <- data_buy[ind.buy.tar,]
+data_notbuytar <- data_notbuy[ind.notbuy.tar,]
+
+
+ggplot(data_tar, aes(x = "", fill = buy_ornot)) + geom_bar() + coord_polar(theta = "y", start = 0) + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("buy or not") + ylab("counts")
+
+
+
+```
+
+### 目标群体的收入于消费是否理智的关系
+
+```{r,echo=FALSE,warning=FALSE}
+data_buytar$calm<-as.character(data_buytar$calm)
+
+ggplot(data_buytar, aes(x = incometag, fill = as.factor(calm))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("Whether income and consumption are rational or not") + ylab("counts")
+
+
+```
+
+
+
+### 目标群体和是否参与活动以及是否使用花呗\&白条的关系
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+ggplot(data_buytar, aes(x = excecon, fill = as.factor(activity))) + geom_bar() + coord_polar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("relationship between activity and huabei") + ylab("counts")
+
+```
+
+
+### 目标群体与所售产品种类的关系
+
+
+```{r,echo=FALSE,warning=FALSE}
+#种类
+index.type1<-as.vector(unlist(strsplit(data_buytar[1,4],split="┋")))
+for(i in 2:nrow(data_buytar)){
+  index.type1<-c(index.type1,as.vector(unlist(strsplit(data_buytar[i,4],split="┋"))))
+}
+#table(index.type1)
+
+suppressMessages(library(tidyverse))
+ind.cp1<-which(str_detect(data_buytar$type,"电脑办公")==TRUE)
+ind.clo1<-which(str_detect(data_buytar$type,"服饰鞋靴")==TRUE)
+ind.furn1<-which(str_detect(data_buytar$type,"家居百货")==TRUE)
+ind.elefac1<-which(str_detect(data_buytar$type,"家用电器")==TRUE)
+ind.makeup1<-which(str_detect(data_buytar$type,"美妆个护")==TRUE)
+ind.food1<-which(str_detect(data_buytar$type,"食品生鲜")==TRUE)
+ind.tek1<-which(str_detect(data_buytar$type,"手机数码")==TRUE)
+ind.book1<-which(str_detect(data_buytar$type,"图书文娱")==TRUE)
+
+ind.other.bag1<-which(str_detect(data_buytar$type,"其他〖包包 进口药品 抱枕 运动装备〗")==TRUE)
+#认为包包，进口药品，抱枕都属于家居百货，运动装备属于服饰鞋靴
+if(sum(ind.furn1==ind.other.bag1)==0) ind.furn1<-c(ind.furn1,ind.other.bag1)
+if(sum(ind.clo1==ind.other.bag1)==0) ind.clo1<-c(ind.clo1,ind.other.bag1)
+
+ind.other.surr1<-which(str_detect(data_buytar$type,"其他〖fpx冠军周边〗")==TRUE)
+#认为冠军周边属于图书文娱
+if(sum(ind.book1==ind.other.surr1)==0) ind.book1<-c(ind.book1,ind.other.surr1)
+
+#其他〖宝宝的尿不湿和睡袋 玩具〗 该数据已经购买过家居百货因此不需要添加
+
+ind.other.toy1<-which(str_detect(data_buytar$type,"其他〖孩子的玩具〗")==TRUE)
+#认为孩子的玩具属于属于家居百货
+if(sum(ind.furn1==ind.other.toy1)==0) ind.furn1<-c(ind.furn1,ind.other.toy1)
+
+ind.other.fitness1<-which(str_detect(data_buytar$type,"其他〖健身用品〗")==TRUE)
+#认为健身用品属于属于家居百货
+if(sum(ind.furn1==ind.other.fitness1)==0) ind.furn1<-c(ind.furn1,ind.other.fitness1)
+
+#猫粮属于家居百货但该人已在家居百货中归类，不需再次添加
+
+ind.other.model1<-which(str_detect(data_buytar$type,"其他〖模型〗")==TRUE)
+#认为模型属于属于文娱
+if(sum(ind.book1==ind.other.model1)==0) ind.book1<-c(ind.book1,ind.other.model1)
+
+ind.other.vedio1<-which(str_detect(data_buytar$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book1==ind.other.vedio1)==0) ind.book1<-c(ind.book1,ind.other.vedio1)
+
+ind.other.vedio1<-which(str_detect(data_buytar$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book1==ind.other.vedio1)==0) ind.book1<-c(ind.book1,ind.other.vedio1)
+
+ind.other.bat1<-which(str_detect(data_buytar$type,"其他〖网球拍〗")==TRUE)
+#认为网球拍属于属于家居百货
+if(sum(ind.furn1==ind.other.bat1)==0) ind.furn1<-c(ind.furn1,ind.other.bat1)
+
+ind.other.class1<-which(str_detect(data_buytar$type,"其他〖线上课程〗")==TRUE)
+#认为线上课程属于属于电脑办公
+if(sum(ind.cp1==ind.other.class1)==0) ind.cp1<-c(ind.cp1,ind.other.class1)
+
+ind.other.case1<-which(str_detect(data_buytar$type,"其他〖行李箱〗")==TRUE)
+#认为行李箱属于属于家居百货
+if(sum(ind.furn1==ind.other.case1)==0) ind.furn1<-c(ind.furn1,ind.other.case1)
+
+ind.other.medi1<-which(str_detect(data_buytar$type,"其他〖医疗保健〗")==TRUE)
+#认为医疗保健属于属于家居百货
+if(sum(ind.furn1==ind.other.medi1)==0) ind.furn1<-c(ind.furn1,ind.other.medi1)
+
+ind.type1<-list(ind.book1,ind.clo1,ind.cp1,ind.elefac1,ind.food1,ind.furn1,ind.makeup1)
+
+```
+
+```{r,echo=FALSE,warning=FALSE}
+type_kind1 <- data.frame(kind1 = NA)
+type_kind1[1:47, 1] <- "ind.book"
+type_kind1[48:212, 1] <- "ind.clo"
+type_kind1[213:226, 1] <- "ind.cp"
+type_kind1[227:241, 1] <- "ind.elefac"
+type_kind1[242:300, 1] <- "ind.food"
+type_kind1[301:393, 1] <- "ind.furn"
+type_kind1[394:531, 1] <- "ind.makeup"
+
+
+#ggplot(type_kind1, aes(x = kind1, fill = kind1)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("types of buy") + ylab("counts")
+
+
+
+ggplot(type_kind1, aes(x = kind1, fill = kind1)) + geom_bar() + coord_polar(theta = "y", start = 0)
+
+```
+
+### 目标群体与为谁购买的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#为谁购买
+index.for1<-as.vector(unlist(strsplit(data_buytar[1,5],split="┋")))
+for(i in 2:nrow(data_buytar)){
+  index.for1<-c(index.for1,as.vector(unlist(strsplit(data_buytar[i,5],split="┋"))))
+}
+#table(index.for1)#寻找for中有什么门类
+ind.pet1<-which(str_detect(data_buytar[,5],"宠物")==TRUE)
+ind.parent1<-which(str_detect(data_buytar[,5],"父母")==TRUE)
+ind.lover1<-which(str_detect(data_buytar[,5],"恋人或伴侣")==TRUE)
+ind.relative1<-which(str_detect(data_buytar[,5],"其他亲朋好友")==TRUE)
+ind.self1<-which(str_detect(data_buytar[,5],"自己")==TRUE)
+ind.kid1<-which(str_detect(data_buytar[,5],"其他〖孩子〗")==TRUE)
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖家人（孩子）〗")==TRUE))
+#老人几乎不购物，子女当然就是孩子
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖子女〗")==TRUE))
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖孩子！怎么能漏了这个选项〗")==TRUE))
+
+ind.other.wash1<-which(str_detect(data_buytar[,5],"其他〖寝室买洗衣液〗")==TRUE)
+#认为洗衣液是为了给自己用
+if(sum(ind.self1==ind.other.wash1)==0) ind.self1<-c(ind.self1,ind.other.wash1)
+
+ind.for1<-list(ind.pet1,ind.parent1,ind.lover1,ind.relative1,ind.self1,ind.kid1)
+```
+
+```{r,echo=FALSE,warning=FALSE}
+type_fw <- data.frame(forw = NA)
+type_fw[1:2, 1] <- "ind.pet"
+type_fw[3:55, 1] <- "ind.parent"
+type_fw[56:94, 1] <- "ind.lover"
+type_fw[95:124, 1] <- "ind.relative"
+type_fw[125:339, 1] <- "ind.self"
+
+
+#ggplot(type_fw, aes(x = forw, fill = forw)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("for who") + ylab("counts")
+
+
+
+ggplot(type_fw, aes(x = forw, fill = forw)) + geom_bar() + coord_polar(theta = "y", start = 0)
+```
+
+## 总体性别与目标群体性别(以下简称第二类讨论群体)
+
+### 初步分析
+
+
+```{r,echo=FALSE,warning=FALSE}
+#对性别的分析(全体)
+#table(data_buy$gender)#男女不均衡
+
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_buy[which(data_buy$gender=="male"),"income"],main="income of male of consuming",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+hist(data_buy[which(data_buy$gender=="female"),"income"],main="income of female of consuming",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+
+
+
+#将性别与18~25岁全日制学生拿出来分析
+#table(data_buytar$gender)
+
+
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_buytar[which(data_buytar$gender=="male"),"income"],main="incometar of male of consuming",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+hist(data_buytar[which(data_buytar$gender=="female"),"income"],main="income of female of consuming",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+```
+
+
+
+### 第二类讨论群体与是否参与活动与是否使用花呗\&白条的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#全部人群
+
+w1<-ggplot(data_buy, aes(x = activity, fill = gender)) + geom_bar()
+
+
+
+w2<-ggplot(data_buy, aes(x = excecon, fill = gender)) + geom_bar()
+grid.arrange(w1,w2,ncol=2)
+
+#目标群体
+
+w3<-ggplot(data_buytar, aes(x = activity, fill = gender)) + geom_bar()
+
+
+
+w4<-ggplot(data_buytar, aes(x = excecon, fill = gender)) + geom_bar()
+grid.arrange(w3,w4,ncol=2)
+
+
+```
+
+
+
+### 第二类讨论群体与所购商品种类的关系
+
+```{r,echo=FALSE,warning=FALSE}
+library(ggplot2)
+suppressMessages(library(gridExtra))
+
+data_buy_book <- data_buy[ind.book,]
+data_buy_clo <- data_buy[ind.clo,]
+data_buy_cp <- data_buy[ind.cp,]
+data_buy_elefac <- data_buy[ind.elefac,]
+data_buy_food <- data_buy[ind.food,]
+data_buy_furn <- data_buy[ind.furn,]
+data_buy_makeup <- data_buy[ind.makeup,]
+
+
+p.book <- ggplot(data_buy_book,aes(x = gender)) + geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo<-ggplot(data_buy_clo,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp<-ggplot(data_buy_cp,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("cp")+theme(plot.title=element_text(hjust=0.5))
+p.elefac<-ggplot(data_buy_elefac,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food<-ggplot(data_buy_food,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn<-ggplot(data_buy_furn,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup<-ggplot(data_buy_makeup,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book,p.clo,p.cp,p.elefac,p.food,p.furn,p.makeup,ncol=3)
+
+
+#目标群体
+data_buytar_book <- data_buytar[ind.book1,]
+data_buytar_clo <- data_buytar[ind.clo1,]
+data_buytar_cp <- data_buytar[ind.cp1,]
+data_buytar_elefac <- data_buytar[ind.elefac1,]
+data_buytar_food <- data_buytar[ind.food1,]
+data_buytar_furn <- data_buytar[ind.furn1,]
+data_buytar_makeup <- data_buytar[ind.makeup1,]
+
+
+p.book1 <- ggplot(data_buytar_book,aes(x = gender)) + geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo1<-ggplot(data_buytar_clo,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp1<-ggplot(data_buytar_cp,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("cp")+theme(plot.title=element_text(hjust=0.5))
+p.elefac1<-ggplot(data_buytar_elefac,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food1<-ggplot(data_buytar_food,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn1<-ggplot(data_buytar_furn,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup1<-ggplot(data_buytar_makeup,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book1,p.clo1,p.cp1,p.elefac1,p.food1,p.furn1,p.makeup1,ncol=3)
+```
+
+
+### 第二类讨论群体与为谁而买的关系
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy_pet <- data_buy[ind.pet,]
+data_buy_parent <- data_buy[ind.parent,]
+data_buy_lover <- data_buy[ind.lover,]
+data_buy_relative <- data_buy[ind.relative,]
+data_buy_self <- data_buy[ind.self,]
+data_buy_kid <- data_buy[ind.kid,]
+
+
+p.pet <- ggplot(data_buy_pet,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent <- ggplot(data_buy_parent,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover <- ggplot(data_buy_lover,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative <- ggplot(data_buy_relative, aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self <- ggplot(data_buy_self,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid <- ggplot(data_buy_kid,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.pet, p.parent,p.lover,p.relative,p.self,p.kid,ncol=3)
+
+
+#目标人群
+data_buytar_pet <- data_buy[ind.pet1,]
+data_buytar_parent <- data_buy[ind.parent1,]
+data_buytar_lover <- data_buy[ind.lover1,]
+data_buytar_relative <- data_buy[ind.relative1,]
+data_buytar_self <- data_buy[ind.self1,]
+data_buytar_kid <- data_buy[ind.kid1,]
+
+
+p.pet1 <- ggplot(data_buytar_pet,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent1 <- ggplot(data_buytar_parent,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover1 <- ggplot(data_buytar_lover,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative1 <- ggplot(data_buytar_relative, aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self1 <- ggplot(data_buytar_self,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid1 <- ggplot(data_buytar_kid,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.pet1, p.parent1,p.lover1,p.relative1,p.self1,ncol=3)
+
+
+
+```
+ 
+# 双十一未参与购物人群数据分析
+
+
+## 由收入情况分析
+
+```{r,echo=FALSE,warning=FALSE}
+#收入情况
+#粗看数据
+glimpse<-rbind(summary(data_notbuy$income),summary(data_buy$income))
+rownames(glimpse)<-c("不购物","购物")
+#通过glimpse这个数据能够发现从3/4分位数开始购物的人的收入水平要更高，但是两者的低收入到中位数数据基本近似，因此我们猜测不消费的人群收入要更紧凑一些，而购物人群收入会出现较多离群值（超高收入）
+
+p.nincome<-ggplot(data_notbuy,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  ggtitle("income of not buy")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+
+  stat_summary(fun="mean",geom="point",shape=5,size=4)+geom_hline(aes(yintercept=3300),color="blue")
+p.income<-ggplot(data_buy,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  ggtitle("income of buy")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+
+  stat_summary(fun="mean",geom="point",shape=5,size=4)+geom_hline(aes(yintercept=3300),color="blue")
+#grid.arrange(p.nincome,p.income,ncol=2)
+
+
+p.n.hist<-ggplot(data_notbuy,aes(x=income))+geom_histogram(aes(y=..density..),color="black",fill="white")+geom_density(alpha=0.2,fill="green")
+p.hist<-ggplot(data_buy,aes(x=income))+geom_histogram(aes(y=..density..),color="black",fill="white")+geom_density(alpha=0.2,fill="green")
+grid.arrange(p.n.hist,p.hist,ncol=2)
+```
+
+
+## 由评价分析
+
+```{r,echo=FALSE,warning=FALSE}
+frame<-cbind(table(data_notbuy$atti),table(data_buy$atti))
+frame[1,2]=0;frame[2:4,2]<-table(data_buy$atti)
+rownames(frame)<-c("lier","neu","obj","sup")
+colnames(frame)<-c("not buy","buy")
+
+barplot(frame,beside=TRUE,col=rainbow(4))
+legend("topleft",fill=rainbow(4),legend=c("lier","neu","obj","sup"))
+
+```
+
+
+## 由男女比例~消费评价分析
+
+```{r,echo=FALSE,warning=FALSE}
+#关于男女比例~消费评价
+#table(data_notbuy$gender)#男女均衡
+
+p.notbuy<-ggplot(data_notbuy,aes(x=gender,fill=as.factor(atti)))+geom_bar()+coord_polar()+
+  scale_fill_discrete(name = "attitude no con to con")+labs(x="",y="")
+p.buy<-ggplot(data_buy,aes(x=gender,fill=as.factor(atti)))+geom_bar()+
+  scale_fill_discrete(name = "attitude of con to con")+labs(x="",y="")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+#con是consume的意思
+grid.arrange(p.notbuy,p.buy,ncol=2,widths=c(3,2))
+
+#ggplot(data_notbuy,aes(x=gender,y=income))+geom_point()+facet_grid(~gender)
+
+#layout(matrix(c(1,2),1,2,byrow=TRUE))
+#hist(data_notbuy[which(data_notbuy$gender=="male"),"income"],main="income of male without con",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+#hist(data_notbuy[which(data_notbuy$gender=="female"),"income"],main="income of female without con",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+
+
+#layout(matrix(c(1,2),1,2,byrow=TRUE))
+#hist(data_buy[which(data_buy$gender=="male"),"income"],main="income of male who consume",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+#hist(data_buy[which(data_buy$gender=="female"),"income"],main="income of female who consume",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_notbuy[which(data_notbuy$atti=="neu"|data_notbuy$atti=="lier"),"income"],main="income of no con with neu|lier",col="orange",xlab="income",ylab="counts")
+hist(data_buy[which(data_buy$atti=="neu"),"income"],main="income of con with neu|lier",col="pink",xlab="income",ylab="counts")
+
+
+
+p.buy.male<-ggplot(data_buy[which(data_buy$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of male con")+theme(plot.title=element_text(hjust=0.5))
+p.buy.female<-ggplot(data_buy[which(data_buy$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of female con")+theme(plot.title=element_text(hjust=0.5))
+p.nbuy.male<-ggplot(data_notbuy[which(data_notbuy$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of male no con")+theme(plot.title=element_text(hjust=0.5))
+p.nbuy.female<-ggplot(data_notbuy[which(data_notbuy$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of female no con")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.buy.male,p.buy.female,p.nbuy.male,p.nbuy.female,ncol=2)
+
+```
+
+## 目标人群分析
+
+```{r,echo=FALSE,warning=FALSE}
+#比较好奇学生群体且年龄在18~25岁的群体——称为目标人群
+ind.buy.target<-which(data_buy$job=="全日制学生"&data_buy$age=="18~25岁")
+ind.notbuy.target<-which(data_notbuy$job=="全日制学生"&data_notbuy$age=="18~25岁")
+data_buytar<-data_buy[ind.buy.target,]
+data_nbuytar<-data_notbuy[ind.notbuy.target,]
+
+
+p.tar.box<-ggplot(data_buytar,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("income:tar&con")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))
+p.ntar.box<-ggplot(data_nbuytar,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("income:tar&no con")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.tar.box,p.ntar.box,ncol=2)
+
+
+mytable<-cbind(table(data_nbuytar$atti),table(data_buytar$atti))
+mytable[1,2]<-0;mytable[2:4,2]<-table(data_buytar$atti)
+colnames(mytable)<-(c("tar&no con","tar&con"))
+
+barplot(mytable,beside=TRUE,col=rainbow(4))
+legend("topleft",fill=rainbow(4),legend=c("lier","neu","obj","sup"))
+
+p.tarbuy.male<-ggplot(data_buytar[which(data_buytar$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&con&male")+theme(plot.title=element_text(hjust=0.5))
+p.tarbuy.female<-ggplot(data_buytar[which(data_buytar$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&con&female")+theme(plot.title=element_text(hjust=0.5))
+p.tarnbuy.male<-ggplot(data_nbuytar[which(data_nbuytar$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&no con&male")+theme(plot.title=element_text(hjust=0.5))
+p.tarnbuy.female<-ggplot(data_nbuytar[which(data_nbuytar$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&no con&female")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.tarbuy.male,p.tarbuy.female,p.tarnbuy.male,p.tarnbuy.female,ncol=2)
+
+```
+
+## 职业
+
+```{r,echo=FALSE,warning=FALSE}
+#先看职业
+
+#还是能看出来学生平均收入还是要低一点的（也可以用summary看出）
+#底下的代码可以看出学生的态度跟总体的态度是一致的，学生态度可以代表总体
+#layout(matrix(c(1,2),1,2,ncol=2))
+#barplot(table(data_notbuy$atti),main="不购物总体态度",xlab="收入",ylab="计数")
+#barplot(table(data_notbuy[ind.notbuy.stu,"atti"]),main="不购物学生总体态度",xlab="收入",ylab="计数")
+
+layout(matrix(c(1,2,3,4),2,2,byrow=TRUE))
+hist(data_notbuy$income,main="income of all no consume",xlab="income",ylab="counts")
+hist(data_notbuy[ind.notbuy.stu,"income"],main="income of stu no consume",xlab="income",ylab="counts")
+hist(data_notbuy$income,main="income of all no consume",xlab="income",ylab="counts")
+hist(data_notbuy[ind.notbuy.18,"income"],main="income of 18-25 no consume",xlab="income",ylab="counts")
+
+#还是可以看出来学生群体平均收入还是要稍低一些的
+
+#总体的男女对比收入水平在第三块代码区
+```
