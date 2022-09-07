@@ -1,0 +1,1895 @@
+---
+title: "双十一数据分析"
+documentclass: ctexart
+author:
+  -  尚尔淦 
+  -  彭小雨
+output:
+  rticles::ctex:
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+classoption: "hyperref"
+---
+# 关于数据处理的说明
+
+```{r,echo=FALSE,warning=FALSE}
+#读入数据
+suppressMessages(library(tidyverse))
+suppressMessages(library(gridExtra))
+library(ggplot2)
+data<-read.csv("C:/Users/mac/Desktop/cuthand.csv",header=TRUE,na.strings="(跳过)")
+#head(data)
+#分别表示是否参与·预期消费·实际消费·物品种类·为谁购物·购物平台·是否参与活动·是否超前消费·评价·性别·年龄·职业·收入·地区
+names(data)<-c("buy_ornot","expcon","actcon","type","for","plat","activity","excecon","rem","gender","age","job","income","loc")
+data[which(data$buy_ornot=="购物了"),1]<-1
+data[which(data$buy_ornot=="没有"),1]<-0
+data[which(data$gender=="男"),"gender"]<-"male"
+data[which(data$gender=="女"),"gender"]<-"female"
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+#对地区的预处理
+data$loc<-substr(data$loc,1,2)
+data[which(data$loc=="黑龙"),"loc"]<-"Heilongjiang"
+for(i in 1:nrow(data)){
+  if(data[i,"loc"]=="安徽") data[i,"loc"]<-"Anhui"
+  if(data[i,"loc"]=="北京") data[i,"loc"]<-"Beijing"
+  if(data[i,"loc"]=="福建") data[i,"loc"]<-"Fujian"
+  if(data[i,"loc"]=="甘肃") data[i,"loc"]<-"Gansu"
+  if(data[i,"loc"]=="广东") data[i,"loc"]<-"Guangdong"
+  if(data[i,"loc"]=="广西") data[i,"loc"]<-"Guangxi"
+  if(data[i,"loc"]=="海南") data[i,"loc"]<-"Hainan"
+  if(data[i,"loc"]=="河北") data[i,"loc"]<-"Hebei"
+  if(data[i,"loc"]=="河南") data[i,"loc"]<-"Henan"
+  if(data[i,"loc"]=="湖北") data[i,"loc"]<-"Hubei"
+  if(data[i,"loc"]=="湖南") data[i,"loc"]<-"Hunan"
+  if(data[i,"loc"]=="吉林") data[i,"loc"]<-"Jilin"
+  if(data[i,"loc"]=="江苏") data[i,"loc"]<-"Jiangsu"
+  if(data[i,"loc"]=="江西") data[i,"loc"]<-"Jiangxi"
+  if(data[i,"loc"]=="辽宁") data[i,"loc"]<-"Liaoning"
+  if(data[i,"loc"]=="青海") data[i,"loc"]<-"Qinghai"
+  if(data[i,"loc"]=="山东") data[i,"loc"]<-"Shandong"
+  if(data[i,"loc"]=="山西") data[i,"loc"]<-"Shanxi"
+  if(data[i,"loc"]=="陕西") data[i,"loc"]<-"Shaanxi"
+  if(data[i,"loc"]=="上海") data[i,"loc"]<-"Shanghai"
+  if(data[i,"loc"]=="四川") data[i,"loc"]<-"Sichuan"
+  if(data[i,"loc"]=="天津") data[i,"loc"]<-"Tianjin"
+  if(data[i,"loc"]=="香港") data[i,"loc"]<-"Hongkong"
+  if(data[i,"loc"]=="云南") data[i,"loc"]<-"Yunnan"
+  if(data[i,"loc"]=="浙江") data[i,"loc"]<-"Zhejiang"
+  if(data[i,"loc"]=="重庆") data[i,"loc"]<-"Chongqing"
+  if(data[i,"loc"]=="海外") data[i,"loc"]<-"Oversea"
+}
+data_buy<-data[which(data$buy_ornot==1),]#
+data_notbuy<-data[which(data$buy_ornot==0),]#
+x<-2:8#
+data_notbuy<-data_notbuy[,-x]#删除所有NA数据
+data_buy[which(data_buy$activity=="没有"),7]<-0
+data_buy[which(data_buy$activity=="有"),7]<-1
+data_buy[which(data_buy$excecon=="有"),8]<-1
+data_buy[which(data_buy$excecon=="没有"),8]<-0
+
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对消费产品种类进行的清洗
+index.type<-as.vector(unlist(strsplit(data_buy[1,4],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.type<-c(index.type,as.vector(unlist(strsplit(data_buy[i,4],split="┋"))))
+}
+#table(index.type)#寻找type中有什么门类
+#其他〖无〗表示该人在其他的门类中并未选购
+
+ind.cp<-which(str_detect(data_buy$type,"电脑办公")==TRUE)
+ind.clo<-which(str_detect(data_buy$type,"服饰鞋靴")==TRUE)
+ind.furn<-which(str_detect(data_buy$type,"家居百货")==TRUE)
+ind.elefac<-which(str_detect(data_buy$type,"家用电器")==TRUE)
+ind.makeup<-which(str_detect(data_buy$type,"美妆个护")==TRUE)
+ind.food<-which(str_detect(data_buy$type,"食品生鲜")==TRUE)
+ind.tek<-which(str_detect(data_buy$type,"手机数码")==TRUE)
+ind.book<-which(str_detect(data_buy$type,"图书文娱")==TRUE)
+
+ind.other.bag<-which(str_detect(data_buy$type,"其他〖包包 进口药品 抱枕 运动装备〗")==TRUE)
+#认为包包，进口药品，抱枕都属于家居百货，运动装备属于服饰鞋靴
+if(sum(ind.furn==ind.other.bag)==0) ind.furn<-c(ind.furn,ind.other.bag)
+if(sum(ind.clo==ind.other.bag)==0) ind.clo<-c(ind.clo,ind.other.bag)
+
+ind.other.surr<-which(str_detect(data_buy$type,"其他〖fpx冠军周边〗")==TRUE)
+#认为冠军周边属于图书文娱
+if(sum(ind.book==ind.other.surr)==0) ind.book<-c(ind.book,ind.other.surr)
+
+#其他〖宝宝的尿不湿和睡袋 玩具〗 该数据已经购买过家居百货因此不需要添加
+
+ind.other.toy<-which(str_detect(data_buy$type,"其他〖孩子的玩具〗")==TRUE)
+#认为孩子的玩具属于属于家居百货
+if(sum(ind.furn==ind.other.toy)==0) ind.furn<-c(ind.furn,ind.other.toy)
+
+ind.other.fitness<-which(str_detect(data_buy$type,"其他〖健身用品〗")==TRUE)
+#认为健身用品属于属于家居百货
+if(sum(ind.furn==ind.other.fitness)==0) ind.furn<-c(ind.furn,ind.other.fitness)
+
+#猫粮属于家居百货但该人已在家居百货中归类，不需再次添加
+
+ind.other.model<-which(str_detect(data_buy$type,"其他〖模型〗")==TRUE)
+#认为模型属于属于文娱
+if(sum(ind.book==ind.other.model)==0) ind.book<-c(ind.book,ind.other.model)
+
+ind.other.vedio<-which(str_detect(data_buy$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book==ind.other.vedio)==0) ind.book<-c(ind.book,ind.other.vedio)
+
+ind.other.vedio<-which(str_detect(data_buy$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book==ind.other.vedio)==0) ind.book<-c(ind.book,ind.other.vedio)
+
+ind.other.bat<-which(str_detect(data_buy$type,"其他〖网球拍〗")==TRUE)
+#认为网球拍属于属于家居百货
+if(sum(ind.furn==ind.other.bat)==0) ind.furn<-c(ind.furn,ind.other.bat)
+
+ind.other.class<-which(str_detect(data_buy$type,"其他〖线上课程〗")==TRUE)
+#认为线上课程属于属于电脑办公
+if(sum(ind.cp==ind.other.class)==0) ind.cp<-c(ind.cp,ind.other.class)
+
+ind.other.case<-which(str_detect(data_buy$type,"其他〖行李箱〗")==TRUE)
+#认为行李箱属于属于家居百货
+if(sum(ind.furn==ind.other.case)==0) ind.furn<-c(ind.furn,ind.other.case)
+
+ind.other.medi<-which(str_detect(data_buy$type,"其他〖医疗保健〗")==TRUE)
+#认为医疗保健属于属于家居百货
+if(sum(ind.furn==ind.other.medi)==0) ind.furn<-c(ind.furn,ind.other.medi)
+
+ind.type<-list(ind.book,ind.clo,ind.cp,ind.elefac,ind.food,ind.furn,ind.makeup)
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对为谁购物的数据清洗
+index.for<-as.vector(unlist(strsplit(data_buy[1,5],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.for<-c(index.for,as.vector(unlist(strsplit(data_buy[i,5],split="┋"))))
+}
+#table(index.for)#寻找for中有什么门类
+ind.pet<-which(str_detect(data_buy[,5],"宠物")==TRUE)
+ind.parent<-which(str_detect(data_buy[,5],"父母")==TRUE)
+ind.lover<-which(str_detect(data_buy[,5],"恋人或伴侣")==TRUE)
+ind.relative<-which(str_detect(data_buy[,5],"其他亲朋好友")==TRUE)
+ind.self<-which(str_detect(data_buy[,5],"自己")==TRUE)
+ind.kid<-which(str_detect(data_buy[,5],"其他〖孩子〗")==TRUE)
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖家人（孩子）〗")==TRUE))
+#老人几乎不购物，子女当然就是孩子
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖子女〗")==TRUE))
+ind.kid<-c(ind.kid,which(str_detect(data_buy[,5],"其他〖孩子！怎么能漏了这个选项〗")==TRUE))
+
+ind.other.wash<-which(str_detect(data_buy[,5],"其他〖寝室买洗衣液〗")==TRUE)
+#认为洗衣液是为了给自己用
+if(sum(ind.self==ind.other.wash)==0) ind.self<-c(ind.self,ind.other.wash)
+
+ind.for<-list(ind.pet,ind.parent,ind.lover,ind.relative,ind.self,ind.kid)
+```
+
+
+
+```{r,echo=FALSE,warning=FALSE}
+#以下是对购物平台进行数据清洗
+index.plat<-as.vector(unlist(strsplit(data_buy[1,6],split="┋")))
+for(i in 2:nrow(data_buy)){
+  index.plat<-c(index.plat,as.vector(unlist(strsplit(data_buy[i,6],split="┋"))))
+}
+#table(index.plat)#寻找for中有什么门类
+ind.jingdong<-which(str_detect(data_buy$plat,"京东")==TRUE)
+ind.pindd<-which(str_detect(data_buy$plat,"拼多多")==TRUE)
+ind.mall<-which(str_detect(data_buy$plat,"商场")==TRUE)
+ind.suning<-which(str_detect(data_buy$plat,"苏宁")==TRUE)
+ind.taobao<-which(str_detect(data_buy$plat,"淘宝（天猫）")==TRUE)
+ind.apple<-which(str_detect(data_buy$plat,"其他〖Apple 官网〗")==TRUE)
+ind.dangdang<-which(str_detect(data_buy$plat,"其他〖当当〗")==TRUE)
+ind.du<-which(str_detect(data_buy$plat,"其他〖毒〗")==TRUE)
+ind.fandeng<-which(str_detect(data_buy$plat,"其他〖樊登读书〗")==TRUE)
+ind.kaola<-which(str_detect(data_buy$plat,"其他〖网易考拉〗")==TRUE)
+ind.yanxuan<-which(str_detect(data_buy$plat,"其他〖网易严选〗")==TRUE)
+ind.weidian<-which(str_detect(data_buy$plat,"其他〖微店〗")==TRUE)
+ind.wph<-which(str_detect(data_buy$plat,"其他〖唯品会〗")==TRUE)
+ind.onclass<-which(str_detect(data_buy$plat,"其他〖线上课程网站〗")==TRUE)
+
+ind.plat<-list(ind.jingdong,ind.pindd,ind.mall,ind.suning,ind.taobao,ind.apple,
+               ind.dangdang,ind.du,ind.fandeng,ind.kaola,ind.yanxuan,ind.weidian,
+              ind.wph,ind.onclass)
+```
+
+
+```{r,echo=FALSE,warning=FALSE}
+pat<-read.csv("C:/Users/mac/Desktop/data of province by 20 years.csv",header=TRUE)
+#head(pat)
+x<-10:21
+y<-32:33
+pat<-pat[-y,-x]
+colnames(pat)<-c("地区","2020","2019","2018","2017","2016","2015","2014","2013")
+indices<-as.vector(pat[,2])
+for(i in 3:ncol(pat)) indices<-c(indices,pat[,i])
+testpat<-data.frame(indices)
+#上述代码我们从国家统计网站中下载近几年各省的年均居民可支配收入
+#以此想得到我国居民收入的大致分布情况
+a<-20000;b<-29400
+alpha<-1+(a/(b-a))^2;beta<-a/(b-a)^2
+set.seed(10)
+r<-rgamma(length(indices),alpha,beta)
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(indices,freq=FALSE)
+lines(density(indices))
+qqplot(indices,r)
+abline(a=0,b=1)
+
+```
+
+在数据清洗的过程中，我们要对"收入"进行具体化，为了更合理的给出每个收入数据的具体数值，我们采取如下方法：，我们首先从中国国家统计局网站中调出近多年各省市的年平均收入数据，绘制核密度估计图。我们可以从数据的核密度估计图中看到分布呈现单峰，右侧明显有一拐点，因此我们猜测，数据分布大致服从伽马分布，事实上，对于伽马分布函数的核$f(x)=x^{\alpha-1}e^{-\beta x}$，我们分别求一阶和二阶导数$$f'(x)=e^{-\beta x}x^{\alpha-2}(\alpha-1-\beta x)$$
+$$f''(x)=x^{\alpha-3}e^{-\beta x}(\beta^2x^2-2\beta(\alpha-1)x+(\alpha-1)(\alpha-2))$$得到极值点和拐点坐标为$$x_1=\frac{\alpha-1}{\beta}$$
+$$x_2=\frac{\alpha-1+\sqrt{\alpha-1}}{\beta}$$我们若能从核密度估计图中读出极值点和拐点分别为$a,b$那么通过求解方程我们可以得到$\alpha,\beta$的表达为$$\alpha=1+\frac{a^2}{(b-a)^2}\qquad\beta=\frac{a}{(b-a)^2}$$,同时我们利用如下事实:$$X\sim\Gamma(\alpha,\beta)\rightarrow\frac{X}{12}\sim\Gamma(\alpha,12\beta)$$但是尽管我们有如上理论结果，但是实际操作中我们会发现在$X\sim\Gamma(\alpha,12\beta)$时，生成20000元以上的随机数的概率近似为零（系统不可能产生这样的随机数），因此我们考虑到尾部概率为无穷小，在$X>20000$的条件下（条件概率）我们姑且可以认为他服从均匀分布，我们为了使数据尽可能紧凑，我们设置均匀分布为$U(20000,40000)$
+
+\textbf{注:}此外，根据我们对于数据分析的需求，我们将数据进行分词，赋值，引入新数据等处理，具体处理方式\textbf{见代码“数据处理”部分}
+
+结论1(收入分布). 
+
+: 被分析数据中“收入”$income\sim\Gamma(\alpha,\beta)$  
+
+```{r,echo=FALSE,warning=FALSE}
+#利用上述得到的分布对“敏感数据”：income进行赋值
+classi<-c("3000元以下","3000~5000元","5000~10000元","10000~20000元","20000元以上")
+for(i in 1:nrow(data_buy)){
+  j<-which(classi==data_buy[i,13])
+  if(j==1){
+    money<-rgamma(1,alpha,12*beta)
+    while(money>=3000||money<=0) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==2){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<3000||money>5000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==3){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<5000||money>10000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else if(j==4){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<10000||money>20000) money<-rgamma(1,alpha,12*beta)
+    data_buy[i,13]<-money
+  }else{
+    money<-runif(1,20000,40000)
+    data_buy[i,13]<-money
+  }
+}
+data_buy$income<-as.numeric(data_buy$income)
+
+for(i in 1:nrow(data_notbuy)){
+  j<-which(classi==data_notbuy[i,6])
+  if(j==1){
+    money<-rgamma(1,alpha,12*beta)
+    while(money>=3000||money<=0) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==2){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<3000||money>5000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==3){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<5000||money>10000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else if(j==4){
+    money<-rgamma(1,alpha,12*beta)
+    while(money<10000||money>20000) money<-rgamma(1,alpha,12*beta)
+    data_notbuy[i,6]<-money
+  }else{
+    money<-runif(1,20000,40000)
+    data_notbuy[i,6]<-money
+  }
+}
+data_notbuy$income<-as.numeric(data_notbuy$income)
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#对职业进行清洗归类
+#我们利用table函数能够发现样本中学生的数量大约占有77%
+#sum(data$job=="全日制学生")/nrow(data)
+#因此我们对职业的分类目前先分为学生与非学生两类
+ind.buy.stu<-which(data_buy$job=="全日制学生")
+ind.buy.othjob<-which(data_buy$job!="全日制学生")
+ind.notbuy.stu<-which(data_notbuy$job=="全日制学生")
+ind.notbuy.othjob<-which(data_notbuy$job!="全日制学生")
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#这是对age的清洗
+#类似于职业的统计方法我们可以看到18~25岁的比例较大
+ind.buy.18<-which(data_buy$age=="18~25岁")
+ind.buy.othage<-which(data_buy$age!="18~25岁")
+ind.notbuy.18<-which(data_notbuy$age=="18~25岁")
+ind.notbuy.othage<-which(data_notbuy$age!="18~25岁")
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#支持
+dictionary.sup<-c("薅到爽到，支持！","其他〖便宜了就可以〗","其他〖趁着低价买自己需要的衣服〗",
+                  "其他〖趁着活动屯货〗","其他〖囤下日用品，刚需。还挺好〗","其他〖还是便宜了一些〗",
+                  "其他〖今年算是理性消费，个人很满意〗","其他〖买了想买的东西，比平时便宜了一些〗",
+                  "其他〖买了自己需要的东西〗","其他〖满减就算优惠〗",
+                  "其他〖确实有一些优惠，不过也是找一个让自己心安理得买买买的机会〗","其他〖有些东西确实可以买〗"
+                  ,"其他〖有需要〗")
+#反对
+dictionary.obj<-c("买了不必要的东西...","其他〖保持理智〗","其他〖二级价格歧视〗",
+                  "其他〖盖楼、砍价这类活动费时费力，没意义〗","其他〖规则太繁杂琐碎，兴致全无〗"
+                  ,"其他〖耗时〗","其他〖活动力度在某些商品体现不明显，套路太多〗","其他〖多余〗",
+                  "其他〖少一些套路，多一些真诚的优惠吧〗","其他〖虽然还是便宜了，但好像越来越没意思了。。。〗",
+                  "其他〖淘宝的活动令人恶心，选京东了〗","其他〖我很穷〗","其他〖鞋的质量有问题〗",
+                  "其他〖优惠券的使用规则太麻烦了〗","其他〖越来越假〗")
+#中立
+dictionary.neu<-c("静待霉霉，与我无瓜~ ","其他〖待时而动〗",
+                  "其他〖还好，如果有需要的会去买，没有需要不太会参与，因为大多数其实没有很大的折扣感觉〗"
+                  ,"其他〖还好〗","其他〖还是比往常更便宜点，但也没有特别爽到〗","其他〖还行，吸引力越来越小〗"
+                  ,"其他〖还行〗","其他〖即使是双11，也要理性购物〗","其他〖就那样，比较无所谓〗",
+                  "其他〖可能比平时便宜一丢丢，但不想花太多精力〗","其他〖买到想买的东西，但打折力度并不大〗",
+                  "其他〖买需要的〗","其他〖虽然有便宜，买的也都是想要的，但希望套路简单点〗",
+                  "其他〖痛并快乐着〗","其他〖无〗","其他〖无所谓〗","其他〖小小参与一下〗",
+                  "其他〖一般吧，是省了点但没爽〗","其他〖有需要的就买，没需要的就不买〗",
+                  "其他〖有需要就买点，不用刻意〗","其他〖有要买的东西就参加，没有要买的就不参加〗",
+                  "其他〖正常促销，淡定就好〗","其他〖正常购物〗",
+                  "其他〖只买家里需要的日用品，虽然不便宜，但是红包抵扣多，〗","其他〖中立态度〗")
+data_buy<-cbind(data_buy,atti=NA)
+for(i in 1:nrow(data_buy)){
+  if(match(data_buy[i,"rem"],dictionary.sup,nomatch=FALSE)!=0){
+    data_buy[i,"atti"]<-"sup"
+  }else if(match(data_buy[i,"rem"],dictionary.neu,nomatch=FALSE)!=0){
+    data_buy[i,"atti"]<-"neu"
+  }else{
+    data_buy[i,"atti"]<-"obj"
+  }
+}
+```
+
+```{r,echo=FALSE,warning=FALSE}
+dictionary.n.sup<-c("其他〖促进消费，值得肯定〗","其他〖还好吧，促进消费挺好的〗")
+dictionary.n.neu<-c("其他〖没啥买的〗","其他〖有需要才买，她的优惠我感觉都一样〗"
+                    ,"静待霉霉，与我无瓜~")
+dictionary.n.obj<-c("其他〖经验证，双十一比平时还贵〗",
+                    "其他〖一年不如一年，尤其今年抬价再打折，有几个电器比我3年前买的还贵，没意思〗")
+#没买的人说"薅到爽"和"买了不必要的"肯定是乱写问卷,标签记为lier
+dictionary.lier<-c("薅到爽到，支持！","买了不必要的东西...")
+data_notbuy<-cbind(data_notbuy,atti=NA)
+for(i in 1:nrow(data_notbuy)){
+  if(match(data_notbuy[i,"rem"],dictionary.n.sup,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"sup"
+  }else if(match(data_notbuy[i,"rem"],dictionary.n.neu,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"neu"
+  }else if(match(data_notbuy[i,"rem"],dictionary.n.obj,nomatch=FALSE)!=0){
+    data_notbuy[i,"atti"]<-"obj"
+  }else{
+    data_notbuy[i,"atti"]<-"lier"
+  }
+}
+```
+
+```{r,echo=FALSE,warning=FALSE}
+#这是对实际消费和预期消费的数据清洗,新建一列名为calm列,该列的赋值只是作为指标区分
+#数值大小没有很强的实际含义,正百单位的表示冲动消费,10以内的数据表示收支平衡
+#负值代表预期消费高于实际消费
+data_buy<-cbind(data_buy,calm=NA)
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<-0
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<-500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-1500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-4500
+  }else if(data_buy[i,"expcon"]=="500元以下"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-9500
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -500
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<-1
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-1000
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-3000
+  }else if(data_buy[i,"expcon"]=="500~2000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-7000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -1500
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -1000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<-2
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-2000
+  }else if(data_buy[i,"expcon"]=="2000~5000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-5000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -4500
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -3000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<- -2000
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<-3
+  }else if(data_buy[i,"expcon"]=="5000~10000元"&&data_buy[i,"actcon"]=="10000元以上"){
+    data_buy[i,"calm"]<-4000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="500元以下"){
+    data_buy[i,"calm"]<- -9500
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="500~2000元"){
+    data_buy[i,"calm"]<- -7000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="2000~5000元"){
+    data_buy[i,"calm"]<- -5000
+  }else if(data_buy[i,"expcon"]=="10000元以上"&&data_buy[i,"actcon"]=="5000~10000元"){
+    data_buy[i,"calm"]<- -4000
+  }else{
+    data_buy[i,"calm"]<-4
+  }
+}
+```
+
+# 双十一参与购物人群数据分析
+
+在初步完成对数据的清洗后，我们形成了一个初步的数据分析思路，即我们以下将对于表格的每列经行初步分析
+
+## 预期消费与实际消费
+
+
+### 初步分析
+
+
+
+结论2.1.
+
+: 我们由柱状图中可以明显发现大致有半数的人群能够做到预期消费与实际消费在同一区间内，但是剩余半数人群的实际消费几乎均超过了预期消费
+
+### 预期消费\&实际消费与收入的关系
+
+由于在日常生活中，我们可以体会出收入从某种程度上决定着人们的消费水平，于是该部分我们结合收入进行分析
+
+```{r,echo=FALSE,warning=FALSE}
+#library(ggplot2)
+#利用calm栏对实际消费和预期消费关系与其他各变量之间的关系
+#粗看数据
+
+data_buy$calm<-as.numeric(data_buy$calm)
+res<-table(data_buy$calm)
+
+#从上图中可以明显发现大概有半数的人能够做到预期消费与实际消费在同一区间内
+#但是另外半数的人群几乎所有人实际消费均超过了预期消费
+#data_buy$calm<-as.character(data_buy$calm)#这一步转化是为了画出来饼图(效果不好)
+#ggplot(data_buy,aes(x=calm,fill=calm))+
+#  geom_bar()+coord_polar(theta="y",start=0)+
+#  labs(x="",y="")+ggtitle("proportion of expcon&actcon")+
+#  theme(plot.title=element_text(hjust=0.5))
+#为了画牛眼图但是画图效果不好
+#ggplot(data_buy,aes(x=calm,fill=calm))+
+#  geom_bar()+coord_polar(theta="y",start=0)+
+#  labs(x="",y="")+ggtitle("proportion of expcon&actcon")+
+#  theme(plot.title=element_text(hjust=0.5))
+
+income<-data_buy$income
+con<-data_buy$calm
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(res)
+abline(v=8.5,col="red")
+abline(v=14.5,col="red")#两条红线将三组人群进分割
+plot(income,con)
+```
+
+结论2.2.
+
+: 承接上述分析，我们在柱状图中加入红线将人群分为三类，由进一步改进的图中我们进一步发现：绝大多数预算和实际差不多的人群收入较低，而收入较高的人群中的多数都在双十一活动中参与了消费.随即，我们对收入与实际消费是否超出预期消费做出了散点图，由散点图我们可以发现：收入高低和实际消费是否超出预算的程度并不具有明显的相关性，我们可以由此推断出收入高低并不对人们的理财观念产生决定性影响
+
+```{r,echo=FALSE,warning=FALSE}
+#这个图能够发现：绝大多数预算和实际差不多的人群收入较低，而收入较高的人群中有大比例的人都会消费
+#超出预算，收入和超出预算的程度并不具有明显的相关性
+#data_buy<-cbind(data_buy,incometag=NA)
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"income"]<3000){
+    data_buy[i,"incometag"]<-"3000RMB below"
+  }else if(data_buy[i,"income"]>3000&data_buy[i,"income"]<5000){
+    data_buy[i,"incometag"]<-"3000~5000RMB"
+  }else if(data_buy[i,"income"]>5000&data_buy[i,"income"]<10000){
+    data_buy[i,"incometag"]<-"5000~10000RMB"
+  }else if(data_buy[i,"income"]>10000&data_buy[i,"income"]<20000){
+    data_buy[i,"incometag"]<-"10000~20000RMB"
+  }else{
+    data_buy[i,"incometag"]<-"20000RMB above"
+  }
+}
+data_buy$calm<-as.character(data_buy$calm)
+
+ggplot(data_buy,aes(x=incometag,fill=as.factor(calm)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#这个图可以清晰地看出高收入人群大多预期消费与实际消费重合，但是低收入人群有较大比例的人群超前消费
+#但是在全民剁手的潮流中还是有较多数人能够做到理性消费
+```
+结论2.3.
+
+: 我们进一步画出收入与消费是否理性的柱状图，从该图中我们可以清晰地看出高收入人群大多预期消费与实际消费重合，但是低收入人群中超前消费的人群占了较大比例，但是在全民剁手的潮流中仍然有较多数人能够做到理性消费，这或许可以说明剁手消费的潮流只是商家营造出的一种为了刺激消费的虚拟的社会氛围
+
+### 预期消费\&实际消费与是否参与活动以及使用花呗\&白条的关系
+
+我们在生活中不难体会到，在我们的购买过程中，折扣活动与花呗\&白条所造成的对我们的购物欲的影响是不容小觑的，因此我们以下通过数据分析判断我们的猜测是否正确
+
+```{r,echo=FALSE,warning=FALSE}
+#实际&预期与是否参加活动以及使用花呗&白条的关系
+data_buy$calm<-as.character(data_buy$calm)
+#参加活动已经用0,1表示是否参加，同理于是否使用花呗白条
+
+ggplot(data_buy,aes(x=calm,fill=as.factor(activity)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#从这个图可以看出对于能够控制住自己消费的人群（预期和实际在同一区间）对于是否参加活动并不是十分关心，参加与否五五开，但是对于实际消费小于预期消费的人群大都参加活动，这种行动造成的结果似乎是助推实际消费更少的原因，而实际消费较高的人群相比预期消费较高的人群，参加活动的比例增加不少，尤其是实际消费稍高于预期消费的人群（见图中横坐标2000处），这样的人群大多热衷于参加活动来降低实际消费，来防止实际消费超出预期过多，因此总体来讲尽管实际消费人群大多参与活动但是仍然导致实际超出预期（剁手）
+#data_buy$calm<-as.numeric(data_buy$calm)
+#activity<-data_buy$activity
+#con<-data_buy$calm
+#plot(activity,con)
+
+ggplot(data_buy,aes(x=calm,fill=as.factor(excecon)))+geom_bar()+theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#这个图片明显发现蓝色的比例（使用花呗和白条）较大，群众具有超前消费倾向，尤其是实际消费大于预期消费的人群使用花呗白条的频率更大，只有预期与实际近似的人群能够做到对花呗白条的使用进行均衡，但是也仍有半数的人超前消费
+```
+
+结论2.4.
+
+: 由第一个柱状图，我们可以看出对于能够控制住自己消费水平的人群（预期和实际在同一区间）对于是否参加活动并不是十分在意，参加与否呈现五五分的状态，但是我们发现实际消费小于预期消费的人群多数都参加了活动，从某种程度上说这种折扣活动的目的是为了降低实际消费，同时实际消费较高的人群相比预期消费较高的人群，参加活动的比例增加很多，尤其是实际消费稍高于预期消费的人群（见图中横坐标2000处），这样的人群大多热衷于通过参加活动来降低实际消费，以防止实际消费过多超出预期，因此总体来讲尽管实际消费超出预期消费的人群大多参与活动但是仍然会导致实际超出预期（剁手），这说明商家的折扣活动对于刺激消费产生着一定的作用，而且这也表现出大众在消费过程中对于折扣活动存在较弱的抵制力 
+
+结论2.5.
+
+: 这个图片明显发现蓝色的比例（使用花呗和白条）较大，即大多数群众具有超前消费倾向，尤其是实际消费大于预期消费的人群使用花呗白条的频率更大，只有预期与实际近似的人群能够做到对花呗白条的使用进行均衡，但是也仍有半数的人超前消费。花呗白条的使用是近几年该开始兴起的支付方式，并一时间受到了众多年轻人的追捧，而我们的数据分析也恰恰应证了这种新兴的支付方式极大程度上起到了促进消费的作用，尤其对于消费不理智的群体的作用更加显著  
+
+
+### 预期消费\&实际消费与地域之间的关系
+
+中国是一个拥有广袤地域的国家，而其辽阔的国土使得其各地区经济发展状况、乡土文化、收入水平和消费水平都有着显著不同，因此我们以下分析预期消费\&实际消费与地域之间有怎样的关系
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy$calm<-as.numeric(data_buy$calm)
+
+ggplot(data_buy,aes(x=loc,fill=as.factor(calm)))+geom_bar()+theme(axis.text.x = element_text(angle=60, hjust=1))+xlab("region")+ylab("counts")
+
+#能够发现：超前消费（实际消费大于预期消费）人群经常出现在像“北京”“上海”这样的发达城市以及像“浙江”“江苏”“山东”这样的沿海城市，其余城市人群几乎所有预期消费高于实际消费，尤其值得注意的是，北京三种消费人群（预期高于，等于，小于实际）层次分明
+```
+
+结论2.6.
+
+: 由柱状图我们能够发现：超前消费（实际消费大于预期消费）人群经常出现在如“北京”“上海”这样的发达城市以及如“浙江”“江苏”“山东”这样的沿海城市，其余城市人群的预期消费几乎均高于实际消费，尤其值得注意的是，北京三种消费人群（预期高于，等于，小于实际）层次分明，这说明超前消费的观念对各地域人群的影响程度有所不同，实际消费大于预期消费意味着在双十一活动结束后的一段时间内，超前消费的群体将会有较大的资金周转压力，而发达城市和沿海城市人群的高收入水平减轻了他们的心理负担从而更好的促进了超前消费观念的普及，这也让该地区群体成为了双十一消费的主力军
+
+### 预期消费\&实际消费与为谁消费\&购买种类之间的关系
+
+在购物中我们常常因为突然刷到的某种物品增加我们的购买力使得我们的实际花费显著增加，抑或是我们在购物中心血来潮想为亲人准备的惊喜使得我们的实际消费超出了我们的控制，我们以下就来分析为谁消费\&购买种类是否会对我们的实际消费产生较大的影响
+
+```{r,echo=FALSE,warning=FALSE}
+#一下分析预期消费&实际消费与为谁消费&购买种类之间的关系
+suppressMessages(library(gridExtra))
+data_buy$calm<-as.character(data_buy$calm)
+data_buy_pet<-data_buy[ind.pet,]
+data_buy_parent<-data_buy[ind.parent,]
+data_buy_lover<-data_buy[ind.lover,]
+data_buy_relative<-data_buy[ind.relative,]
+data_buy_self<-data_buy[ind.self,]
+data_buy_kid<-data_buy[ind.kid,]
+
+p.pet<-ggplot(data_buy_pet,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent<-ggplot(data_buy_parent,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover<-ggplot(data_buy_lover,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative<-ggplot(data_buy_relative,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self<-ggplot(data_buy_self,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid<-ggplot(data_buy_kid,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.pet,p.parent,p.lover,p.relative,p.self,p.kid,ncol=2)
+```
+
+结论2.7.
+
+: 从图中我们不难看出小型类商品及日用品几乎不会成为我们实际消费大于预期消费的原因，而价格较高的电子类产品和家用电器成为了消费群体实际消费大于预期消费的主要因素，这说明所购产品的种类对预期消费\&实际消费起到了一定的作用
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy_book<-data_buy[ind.book,]
+data_buy_clo<-data_buy[ind.clo,]
+data_buy_cp<-data_buy[ind.cp,]
+data_buy_elefac<-data_buy[ind.elefac,]
+data_buy_food<-data_buy[ind.food,]
+data_buy_furn<-data_buy[ind.furn,]
+data_buy_makeup<-data_buy[ind.makeup,]
+
+p.book<-ggplot(data_buy_book,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo<-ggplot(data_buy_clo,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp<-ggplot(data_buy_cp,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("couple")+theme(plot.title=element_text(hjust=0.5))
+p.elefac<-ggplot(data_buy_elefac,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food<-ggplot(data_buy_food,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn<-ggplot(data_buy_furn,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup<-ggplot(data_buy_makeup,aes(x=calm))+geom_bar(color="black",fill="yellow")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book,p.clo,p.cp,p.elefac,p.food,p.furn,p.makeup,ncol=3)
+
+
+####这里其实还有一种方法，但是我个人觉得十分麻烦，因此我先把这种想法写到这里，还可以考虑对三种消费人群进行查看，比如超前消费的在什么种类和为了谁而多消费，但是这样代码比较复杂，并且可以轻易地从刚才那些图片中看到配额
+```
+
+结论2.8.
+
+: 我们可以由图像中发现，导致消费群体超前消费的两类主要群体为宠物和孩子，结合实际生活，我们可以推导出，消费群体一般在制定预期消费水平时往往会忽略宠物部分的花销，因而会造成宠物对超前消费有了一定的促进作用，而对于孩子而言，孩子本身的不定性性必然会导致实际与预期的不符，但是在排除这些不确定因素后，我们难发现绝大多数消费群体在消费中能较好地避免商品种类及人群对其消费的影响，因此为谁消费\&购买种类并不会对预期消费\&实际消费造成决定性的影响
+
+## 所购商品的种类
+
+### 初步分析
+
+```{r,echo=FALSE,warning=FALSE}
+#种类
+type_kind <- data.frame(kind = NA)
+type_kind[1:73, 1] <- "ind.book"
+type_kind[74:292, 1] <- "ind.clo"
+type_kind[293:314, 1] <- "ind.cp"
+type_kind[315:349, 1] <- "ind.elefac"
+type_kind[349:435, 1] <- "ind.food"
+type_kind[436:571, 1] <- "ind.furn"
+type_kind[572:762, 1] <- "ind.makeup"
+
+
+#ggplot(type_kind, aes(x = kind, fill = kind)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("type of items") + ylab("counts")
+
+
+
+
+ggplot(type_kind, aes(x = kind, fill = kind)) + geom_bar() + coord_polar(theta = "y", start = 0)
+
+#由图我们可以看出：服饰鞋靴的购买力度最大，美妆个护次之，这或许可以说明：当代社会现状下，人们对于物质方面的追求主要体现在穿搭方面，而且也从侧面说明了服饰和美妆需求量大，且更迭迅速(或许还可推断出购买人数中女性占据多数，此问题需待后续验证)，我们还可以从图像推断出，对于电子产品，家用电器等大型商品，大众普遍不会等到双十一再行购物，而对于消耗类，奢侈类产品，大众则更倾向于获取一定的价格优势
+```
+
+结论3.1.
+
+: 由图我们可以看出：服饰鞋靴的购买力度最大，美妆个护次之，这或许可以说明：当代社会现状下，人们对于物质方面的追求主要体现在穿搭方面，而且也从侧面说明了服饰和美妆需求量大，且更迭迅速(或许还可推断出购买人数中女性占据多数，此问题需待后续验证)，我们还可以从图像推断出，对于电子产品，家用电器等大型商品，大众普遍不会等到双十一再行购物，而对于消耗类，奢侈类产品，大众则更倾向于获取一定的价格优势
+
+### 所购商品种类与平台的关系
+
+电商平台与各大商场一样，或许都拥有着自己的优势销售商品，其不同商品之间的畅销程度一定也有着一定的不同，下面我们结合数据分析一下这两者之间是否确实存在着一定的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#在不同平台的购买力
+type_plat <- data.frame(plat = NA)
+type_plat[1:81, 1] <- "ind.jingdong"
+type_plat[82:98, 1] <- "ind.pindd"
+type_plat[99:108, 1] <- "ind.mall"
+type_plat[109:115, 1] <- "ind.suning"
+type_plat[116:399, 1] <- "ind.taobao"
+type_plat[400, 1] <- "ind.apple"
+type_plat[401, 1] <- "ind.dangdang"
+type_plat[402:403, 1] <- "ind.du"
+type_plat[404, 1] <- "ind.fandeng"
+type_plat[405:406, 1] <- "ind.kaola"
+type_plat[407, 1] <- "ind.yanxuan"
+type_plat[408:409, 1] <- "ind.weidian"
+type_plat[410:411, 1] <- "ind.wph"
+type_plat[412, 1] <- "ind.onclass"
+
+
+ggplot(type_plat , aes(x = plat, fill = plat)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("purchasing power of different platforms") + ylab("counts")
+
+#由柱状图可看出销量最好的平台为淘宝（天猫），京东次之，这或许会说明淘宝的促销力度大或是淘宝的平台可信度更高，以下我们做详细分析
+```
+
+结论3.2.
+
+: 由柱状图可看出销量最好的平台为淘宝（天猫），京东次之，这或许会说明淘宝的促销力度大或是淘宝的平台可信度更高，以下我们做详细分析
+
+```{r,echo=FALSE,warning=FALSE}
+#平台与种类
+
+type_kp <- merge(x = type_kind, y = type_plat, by = NULL)
+q1<-ggplot(type_kp, aes(x = plat, fill = as.factor(kind))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("distribution of different types in different platforms") + ylab("counts")
+
+
+
+q2<-ggplot(type_kp, aes(x = kind, fill = as.factor(plat))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("Best selling degree of different types of products on various platforms") + ylab("counts")
+
+grid.arrange(q1,q2,ncol=2)
+#经由上一阶段讨论，我们该阶段只注重淘宝和京东两个平台种类购买量的研究：1.我们可由柱状图发现，在淘宝平台上，服饰鞋靴的销量最好，美妆个护次之，家具百货次之，不同产品销量间存在明显的差异现象；但在京东平台上，服饰鞋靴和美妆个护的销量基本持平，家具百货和食品生鲜的销量同样基本持平，由此，我们可推断出，淘宝平台相较于京东的受众群体更为丰富，购买力度更大，但存在着产品种类的质量可信度，促销力度等的不均衡性，而相较于购买力度较小的京东，京东则更好的做到了不同产品之间各方面属性的均衡，降低了受众在购买不同种类的物品时受到的影响  2.我们还可以发现，在线上购买中，人们普遍更倾向于服饰和化妆品类的购买，而商场对于各类产品的销量则更为均衡，新兴的线上购物模式对服饰和化妆品的销售模式影响较大，但对于各类电子产品，家用电器及图书类物品，受众仍更倾向于传统的销售模式
+
+```
+
+结论3.3.
+
+: 经由上一阶段讨论，我们该阶段只注重淘宝和京东两个平台种类购买量的研究：
+
+ - 我们可由柱状图发现，在淘宝平台上，服饰鞋靴的销量最好，美妆个护次之，家具百货次之，不同产品销量间存在明显的差异现象；但在京东平台上，服饰鞋靴和美妆个护的销量基本持平，家具百货和食品生鲜的销量同样基本持平，由此，我们可推断出，淘宝平台相较于京东的受众群体更为丰富，购买力度更大，但存在着产品种类的质量可信度，促销力度等的不均衡性，而相较于购买力度较小的京东，京东则更好的做到了不同产品之间各方面属性的均衡，降低了受众在购买不同种类的物品时受到的影响 
+ - 我们还可以发现，在线上购买中，人们普遍更倾向于服饰和化妆品类的购买，而商场对于各类产品的销量则更为均衡，新兴的线上购物模式对服饰和化妆品的销售模式影响较大，但对于各类电子产品，家用电器及图书类物品，受众仍更倾向于传统的销售模式
+
+### 所有商品种类与为谁而买的关系
+
+我们熟知不同的消费群体有着不同的侧重商品，于是我们考虑这种倾向性选择是否会带入到双十一的购物人群中呢，于是我们做了以下分析
+
+```{r,echo=FALSE,warning=FALSE}
+#种类与为谁购买之间的关系
+temp <- data.frame(forwho=NA)
+temp[1:10, 1] <- "pet"
+temp[11:99, 1] <- "parent"
+temp[100:163, 1] <- "lover"
+temp[164:201, 1] <- "relative"
+temp[202:496, 1] <- "self"
+temp[497:506, 1] <- "kid"
+
+
+q3<-ggplot(temp, aes(x = forwho, fill = forwho)) + geom_bar() + coord_polar(theta = "y", start = 0) + ylab("")
+
+#由该图可知双十一大众购物时普遍倾向于为自己购买，为父母购买次之，为亲朋好友购买再次
+
+type_tp <- merge(x = type_kind, y = temp, by = NULL)
+
+q4<-ggplot(type_tp, aes(x = kind, fill = as.factor(forwho))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("relationship between types and buy for whom") + ylab("counts")
+grid.arrange(q3,q4,ncol=2)
+
+#由该图可看出，无论任一种类的商品，大众均更倾向于为自己购买，但我们还可以发现大众在为其他群体购物时会更倾向于购买衣物，化妆品等小型物品，更进一步，对于电子产品等大众更倾向于为亲人购物,此处需注意一个问题：我们的样本大多在18~25岁，他们大概率还没有孩子
+```
+
+结论3.4.
+
+: 由该图可看出，无论任一种类的商品，大众均更倾向于为自己购买，但我们还可以发现大众在为其他群体购物时会更倾向于购买衣物，化妆品等小型物品，更进一步，对于电子产品等大众更倾向于为亲人购物,此处需注意一个问题：我们的样本大多在18-25岁，他们大概率还没有孩子，因而我们根据目前样本并无法准确分析出在全国的双十一购物潮流中，大众是否具有为孩子购买商品的倾向
+
+### 所购商品种类内部的关系
+
+随着亚文化现象的兴起，我们不难发现每一种爱好都有了自己的社交圈，并且其所牵涉到的其他附属物品也随之得到了一定的增长，那双十一消费群体对于商品的选择是否也具有类似的特点呢，我们以下进行分析
+
+```{r,echo=FALSE,warning=FALSE}
+#种类的内部联系
+a1 <- do.call(rbind, Map(data.frame, ind.clo=ind.clo, ind.makeup=ind.makeup))
+
+q5<-ggplot(a1, aes(x=ind.clo, y=ind.makeup)) + geom_point()  + theme(plot.title = element_text(hjust = 0.5))  
+
+
+a2 <- do.call(rbind, Map(data.frame, ind.clo=ind.clo, ind.furn=ind.furn))
+
+q6<-ggplot(a2, aes(x=ind.clo, y=ind.furn)) + geom_point()  + theme(plot.title = element_text(hjust = 0.5))  
+
+
+a3 <- do.call(rbind, Map(data.frame, ind.makeup=ind.makeup, ind.furn=ind.furn))
+
+q7<-ggplot(a3, aes(x=ind.makeup, y=ind.furn)) + geom_point() + theme(plot.title = element_text(hjust = 0.5))  
+
+grid.arrange(q5,q6,q7,ncol=3)
+#由于购买化妆品，服饰和家电的人数相对较多，适合进一步进行种类内部分析，故我们分析它们三者之间的内部关系：由散点图我们发现购买化妆品与购买服饰间存在较强的线性关系，化妆品与家电次之，服饰与家电更次，由此，我们可以推断出：服饰与化妆品的需求量基本呈正相关性，而其余种类内部之间联系则不存在该种关系
+```
+
+结论3.5.
+
+: 由于购买化妆品，服饰和家电的人数相对较多，适合进一步进行种类内部分析，否则对于购买量较少的与购买量较多的商品，由于其数量的极度不对等性，我们无法做进一步分析，故我们分析它们三者之间的内部关系：由散点图我们发现购买化妆品与购买服饰间存在较强的线性关系，化妆品与家电次之，服饰与家电更次，由此，我们可以推断出：服饰与化妆品的需求量基本呈正相关性，而其余种类内部之间联系则不存在该种关系
+
+## 为谁而购物
+
+### 初步分析
+
+```{r,echo=FALSE,warning=FALSE}
+#接下来分析为谁购物与其他变量的关系
+temp<-data.frame(forwho=NA)
+temp[1:10,1]<-"pet"
+temp[11:99,1]<-"parent"
+temp[100:163,1]<-"lover"
+temp[164:201,1]<-"relative"
+temp[202:496,1]<-"self"
+temp[497:506,1]<-"kid"
+
+ggplot(temp,aes(x=forwho,fill=forwho))+geom_bar()+coord_polar(theta="y",start=0)+ylab("")
+```
+
+结论4.1.
+
+: 由饼图我们可以明显发现，双十一购物人群中为自己购物的消费者占据了绝大多数，为父母消费的次之，为亲戚消费的再次
+
+### 为谁而购物与折扣活动的关系
+
+我们在购买商品时经常会发现，父母对于我们所期望购买的商品通常会尽量满足，而对于自己却秉持着能省则省的态度，下面我们希望通过数据分析观察出折扣是否影响着我们对于为谁购物的选择
+
+```{r,echo=FALSE,warning=FALSE}
+#为自己消费人数占绝对优势
+pat_foractivity1<-rbind(table(data_buy_pet$activity),table(data_buy_parent$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_lover$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_relative$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_self$activity))
+pat_foractivity1<-rbind(pat_foractivity1,table(data_buy_kid$activity))
+rownames(pat_foractivity1)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_foractivity1)<-c("no activity","join in activity")
+
+#上图可以发现无论是否参加活动，人们大多是为自己购物，为父母和伴侣购物的人数次之，人们在购物过程中很少考虑宠物以及孩子，参加活动与不参加的人数分配近似相同
+pat_foractivity2<-cbind(table(data_buy_pet$activity),table(data_buy_parent$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_lover$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_relative$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_self$activity))
+pat_foractivity2<-cbind(pat_foractivity2,table(data_buy_kid$activity))
+colnames(pat_foractivity2)<-c("pet","parent","lover","relative","self","kid")
+rownames(pat_foractivity2)<-c("no activity","join in activity")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_foractivity1,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("topright",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=2)
+
+barplot(pat_foractivity2,beside=TRUE,col=c("pink","green"))
+legend("topleft",fill=c("pink","green"),legend=c("no activity","join in activity"))
+
+#这个图更有价值的信息在于为孩子购物的人群中不参加活动的人数较多，跟人一种为孩子购物“无关紧要”的感觉
+```
+
+结论4.2.
+
+: 上图可以发现无论是否参加活动，人们大多是为自己购物，为父母和伴侣购物的人数次之，人们在购物过程中很少考虑宠物以及孩子，参加活动与不参加的人数分配近似相同。我们换一种作图方式，得到了更为有价值的信息为为孩子购物的人群中不参加活动的人数较多，给人一种为孩子购物“无关紧要”的感觉，这或许恰恰应证了我们在数据分析时的猜想，即在为孩子选购商品时，考虑折扣活动的因素会被大大削减，消费群体在对折扣与满足孩子的需求方面会更倾向于选择后者
+
+### 为谁而购物与是否使用花呗\&白条的关系
+
+据我们在日常生活中的观察不难发现，大众在消费时通常会优先选择信用卡、花呗和白条等透支的消费致富方式，而这种选择是否会影响到为谁购物就是我们接下来想要分析的内容
+
+```{r,echo=FALSE,warning=FALSE}
+pat_forexcecon1<-rbind(table(data_buy_pet$excecon),table(data_buy_parent$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_lover$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_relative$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_self$excecon))
+pat_forexcecon1<-rbind(pat_forexcecon1,table(data_buy_kid$excecon))
+
+rownames(pat_forexcecon1)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_forexcecon1)<-c("no use huabei","use huabei")
+
+pat_forexcecon2<-cbind(table(data_buy_pet$excecon),table(data_buy_parent$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_lover$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_relative$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_self$excecon))
+pat_forexcecon2<-cbind(pat_forexcecon2,table(data_buy_kid$excecon))
+colnames(pat_forexcecon2)<-c("pet","parent","lover","relative","self","kid")
+rownames(pat_forexcecon2)<-c("no use of huabei","use of huabei")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_forexcecon1,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("top",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=2)
+barplot(pat_forexcecon2,beside=TRUE,col=c("pink","green"))
+legend("top",fill=c("pink","green"),legend=c("no use of huabei","use of huabei"))
+
+#这是对上面两个图的总结，我们可以发现使用花呗和白条的人数要比不使用的更多，同时为自己购物而使用花呗和白条的人数占有绝对优势，次之是为了父母购物，如今的购物人群自我意识较强
+```
+\textbf{第二幅图的横坐标自左向右依次为:pet,parent,lover,relative,self,kid}
+
+结论4.3.
+
+: 对于以上两幅图，我们可以发现无论为任一群体购买商品，使用花呗和白条的人数都要比不使用的更多，同时为自己购物而使用花呗和白条的人数占有绝对优势，次之是为了父母购物，如今的购物人群自我意识较强，而且透支式的支付方式并不对为谁购物产生选择性，人们潜意识在任何购物场景中都会优先选择该种支付方式
+
+### 为谁而购物与收入的关系
+
+我们已经了解到收入会对购物产生一定的影响，于是我们思考收入高的群体是否会为更多的群体购买商品
+
+```{r,echo=FALSE,warning=FALSE}
+#收入更多的人是否会为多群体购买呢？
+data_buy$numoftype<-0
+#data_buy$numtype表示购买人群个数
+data_buy[ind.type[[1]],"numoftype"]<-data_buy[ind.type[[1]],"numoftype"]+1
+data_buy[ind.type[[2]],"numoftype"]<-data_buy[ind.type[[2]],"numoftype"]+1
+data_buy[ind.type[[3]],"numoftype"]<-data_buy[ind.type[[3]],"numoftype"]+1
+data_buy[ind.type[[4]],"numoftype"]<-data_buy[ind.type[[4]],"numoftype"]+1
+data_buy[ind.type[[5]],"numoftype"]<-data_buy[ind.type[[5]],"numoftype"]+1
+data_buy[ind.type[[6]],"numoftype"]<-data_buy[ind.type[[6]],"numoftype"]+1
+
+#plot(data_buy$numoftype,data_buy$income)
+data_buy$numoftype<-as.character(data_buy$numoftype)
+
+ggplot(data_buy,aes(x=numoftype,y=income,fill=numoftype))+stat_summary(fun=mean,geom="point",shape=5,size=4)+geom_boxplot()+xlab("number of forwhom")+scale_fill_discrete(name = "number of forwhom")
+
+#从图中我们可以明显看出来为五种人群进行购物的买家收入水平远高于其他人群，同时随着人群种类的增加，收入水平也在缓慢增加，通过观察“离群值”，不为任何人购买的离群值明显少于为3,4,5类人群购物的人群的离群值个数，这也从侧面说明：收入高的人群不仅有能力也真正会为较庞大群体来进行购物
+#于是我们开始好奇，那些收入高的人群到底喜欢为什么样的人（或物品）进行购物呢？
+#从上图众多离群值大致分布在10000以上，我们来查看高收入人群的消费情况
+suppressMessages(library(wordcloud2))
+#cailiao<-read.csv("C:/Users/mac/Desktop/Book1.csv")
+#wordcloud2(cailiao)#这个词云也能看出为自己购物的人太多了
+#在之前的数据分析中我们察觉到为自己和父母购物的人群是十分之多的，那么孩子究竟扮演了什么样的角色呢？
+
+data_kid<-data_buy[ind.kid,]
+
+p1<-ggplot(data_kid,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="counts")+
+  ggtitle("buy for kids")+theme(plot.title=element_text(hjust=0.5))
+
+#有半数为孩子消费的人收入水平超过了10000元，这似乎也预示着高消费人群有更多的经历去照顾孩子，为孩子消费
+
+#蓝线左侧表示低消费人群，红线右侧表示高收入人群
+data_self<-data_buy[ind.self,]
+p2<-ggplot(data_self,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="counts")+
+  ggtitle("buy for self")+theme(plot.title=element_text(hjust=0.5))
+
+data_parent<-data_buy[ind.parent,]
+p3<-ggplot(data_parent,aes(x=income))+geom_histogram(color="black",fill="orange")+
+  geom_vline(aes(xintercept=9000),color="red",linetype="dashed")+
+  geom_vline(aes(xintercept=5000),color="blue")+labs(x="income",y="income")+
+  ggtitle("buy for parents")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p1,p2,p3,ncol=3)
+
+#从上两个图来看，能够发现低收入人群更倾向于为自己和父母消费，从而忽略到孩子的消费中，这符合我们“高收入人群更有能力支持孩子的开支”的直觉
+```
+
+在之前的数据分析中我们察觉到为自己和父母购物的人群是占据了绝大多数，我们不免由图产生疑问：\textbf{孩子究竟扮演了什么样的角色呢？我们下面的结论会给出回答}
+
+结论4.4.
+
+: 综上所述，从上两个图来看，能够发现低收入人群更倾向于为自己和父母消费，从而忽略到孩子的消费中，这符合我们“高收入人群更有能力支持孩子的开支”的直觉.
+
+ - 从图中我们可以明显看出来为五种人群进行购物的买家收入水平远高于其他人群，同时随着人群种类的增加，收入水平也在缓慢增加，我们再对“离群值”进行观察得出，不为任何人购买的离群值明显少于为3,4,5类人群购物的人群的离群值的个数，这也从侧面说明：收入高的人群不仅有能力也真正会为较庞大群体来进行购物，于是我们产生思考，那些收入高的人群到底喜欢为什么样的人（或物）进行购物.
+ - 对于孩子对消费的影响:有半数为孩子消费的人收入水平超过了10000元，这似乎也预示着高收入人群有更多的经历去照顾孩子，为孩子消费，而同时我们还需注意到，我们的样本中绝大多数群体为18-25岁的全日制学生，这部分群体的收入较低，同时也无需承担照顾孩子的工作，因此我们无法得出低收入人群对孩子的消费是否一定会有所减弱以及他们对孩子的照顾是否也一定会有所减弱
+
+### 为谁而购物与地区的关系
+
+由于中国各地区经济发展水平及群众收入都有着一定的差别，那么我们以下分析地区是否会直接对消费者在双十一购物中为谁购物产生影响
+
+```{r,echo=FALSE,warning=FALSE}
+#地区分布是否影响购买人群不同
+data_buy$loctag<-"识别是否发达"
+for(i in 1:nrow(data_buy)){
+  if(data_buy[i,"loc"]=="Beijing"|data_buy[i,"loc"]=="Shanghai"|data_buy[i,"loc"]=="Guangdong"|data_buy[i,"loc"]=="Zhejiang"|data_buy[i,"loc"]=="Jiangsu"){
+    data_buy[i,"loctag"]<-"developed cities"
+  }else{data_buy[i,"loctag"]<-"developing cities"}
+}
+data_buy_pet<-data_buy[ind.pet,]
+data_buy_parent<-data_buy[ind.parent,]
+data_buy_lover<-data_buy[ind.lover,]
+data_buy_relative<-data_buy[ind.relative,]
+data_buy_self<-data_buy[ind.self,]
+data_buy_kid<-data_buy[ind.kid,]
+pat_forloc<-rbind(table(data_buy_pet$loctag),table(data_buy_parent$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_lover$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_relative$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_self$loctag))
+pat_forloc<-rbind(pat_forloc,table(data_buy_kid$loctag))
+
+rownames(pat_forloc)<-c("pet","parent","lover","relative","self","kid")
+colnames(pat_forloc)<-c("developed cities","developing cities")
+
+
+barplot(pat_forloc,beside=TRUE,col=c("red","blue","green","orange","pink","yellow"))
+legend("topright",fill=c("red","blue","green","orange","pink","yellow"),legend=c("pet","parent","lover","relative","self","kid"),ncol=3)
+
+#事实上，尽管发达城市购买力相较欠发达城市要强一些，但是购买需求（为何种人群购买）二者大致是相同的，不同城市人群的“生存需求”是类似的
+```
+
+结论4.5.
+
+: 事实上，尽管发达城市购买力相较欠发达城市要强一些，但是购买需求（为何种人群购买）二者大致是相同的，不同城市人群的“生存需求”是类似的，对为谁而购物这个因素在地区维度上并不产生较大的差异
+
+## 购物平台
+
+### 初步分析
+
+我们先对各平台的消费人数进行观察，发现大家消费的平台大多集中在京东，拼多多，淘宝等，因此我们绘图只考虑以上平台(关于其他平台的人数观察可以参照提交的代码中的注释段)
+
+```{r,echo=FALSE,warning=FALSE}
+#下面是对平台信息与其他信息之间关系的数据分析
+data_buy$calm<-as.character(data_buy$calm)
+data_buy_jingdong<-data_buy[ind.jingdong,]
+data_buy_pindd<-data_buy[ind.pindd,]
+data_buy_mall<-data_buy[ind.mall,]
+data_buy_suning<-data_buy[ind.suning,]
+data_buy_taobao<-data_buy[ind.taobao,]
+#data_buy_apple<-data_buy[ind.apple,]
+#data_buy_dangdang<-data_buy[ind.dangdang,]
+#data_buy_du<-data_buy[ind.du,]
+#data_buy_fandeng<-data_buy[ind.fandeng,]
+#data_buy_kaola<-data_buy[ind.kaola,]
+#data_buy_yanxuan<-data_buy[ind.yanxuan,]
+#data_buy_weidian<-data_buy[ind.weidian,]
+#data_buy_wph<-data_buy[ind.wph,]
+#data_buy_onclass<-data_buy[ind.onclass,]
+
+p.jingdong<-ggplot(data_buy_jingdong,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.pindd<-ggplot(data_buy_pindd,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Pin DuoDuo")+theme(plot.title=element_text(hjust=0.5))
+p.mall<-ggplot(data_buy_mall,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Mall")+theme(plot.title=element_text(hjust=0.5))
+p.suning<-ggplot(data_buy_suning,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Suning")+theme(plot.title=element_text(hjust=0.5))
+p.taobao<-ggplot(data_buy_taobao,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+#p.apple<-ggplot(data_buy_apple,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("苹果")+theme(plot.title=element_text(hjust=0.5))
+#p.dangdang<-ggplot(data_buy_dangdang,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("当当")+theme(plot.title=element_text(hjust=0.5))
+#p.du<-ggplot(data_buy_du,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("毒APP")+theme(plot.title=element_text(hjust=0.5))
+#p.fandeng<-ggplot(data_buy_fandeng,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("樊登")+theme(plot.title=element_text(hjust=0.5))
+#p.kaola<-ggplot(data_buy_kaola,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("考拉")+theme(plot.title=element_text(hjust=0.5))
+#p.yanxuan<-ggplot(data_buy_yanxuan,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("网易严选")+theme(plot.title=element_text(hjust=0.5))
+#p.weidian<-ggplot(data_buy_weidian,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("微店")+theme(plot.title=element_text(hjust=0.5))
+#p.wph<-ggplot(data_buy_wph,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("唯品会")+theme(plot.title=element_text(hjust=0.5))
+#p.onclass<-ggplot(data_buy_onclass,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="计数")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("在线课程")+theme(plot.title=element_text(hjust=0.5))
+#这里画图的时候由于当当，苹果，毒，樊登，考拉，网易严选，微店，唯品会，在线课程的人数过少（只有1~2个）因此忽略这些样本
+grid.arrange(p.jingdong,p.pindd,p.mall,p.suning,p.taobao,ncol=2)
+
+#粗看数据能够发现大家消费的平台大多集中在京东，拼多多，淘宝，其次在商场和苏宁购物
+#一个有趣的发现：尽管在拼多多消费的人群比较少，但是这些人几乎全都参与了“剁手”，拼多多真的是诱惑人家拼单搞得如火如荼
+#同时对于京东和淘宝剁手的人的数量也比不剁手的人数多
+```
+
+结论5.1(一个有趣的发现).
+
+: 尽管在拼多多消费的人群比较少，但是这些人几乎全都参与了“剁手”，拼多多真的是诱惑人家拼单搞得如火如荼，而我们不得否认拼多多平台的拼单活动确实吸引了一部分消费者的注意力，同时我们可以看出还有相当大的一部分人热衷于去淘宝（天猫）进行购物,同时我们也看到了实体商场消费低靡，同时对于京东和淘宝剁手的人的数量也比不剁手的人数多，这说明京东和淘宝两家线上购物平台不仅有着庞大的受众，还拥有着突出的促销手段
+
+### 购物平台与收入的关系
+
+线下实体商场常有各类档次划分，那么线上购物平台是否也进行了类似划分呢，我们以下根据数据进行分析
+
+```{r,echo=FALSE,warning=FALSE}
+p.hist.jingdong<-ggplot(data_buy_jingdong,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Jing Dong")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.pindd<-ggplot(data_buy_pindd,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Pin DuoDuo")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.mall<-ggplot(data_buy_mall,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Mall")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.suning<-ggplot(data_buy_suning,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Suning")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+p.hist.taobao<-ggplot(data_buy_taobao,aes(x=income))+geom_histogram(color="black",fill="pink")+labs(x="income",y="counts")+ggtitle("Tao Bao")+theme(plot.title=element_text(hjust=0.5))+geom_vline(aes(xintercept=10000),color="blue",size=1,linetype="dashed")
+grid.arrange(p.hist.jingdong,p.hist.pindd,p.hist.mall,p.hist.suning,p.hist.taobao,ncol=2)
+
+#我们要时刻注意纵坐标的标度问题，我们可以看出还是有相当大的一部分人热衷于去淘宝（天猫）进行购物,同时我们也看到了实体商场消费低靡
+#我们通过如下代码可以看出高收入人群在淘宝购物的人数相对于在京东购物的人数多一小部分,但是从低收入人群的角度，更多人会选择去淘宝进行消费
+#length(which(data_buy_taobao$income>10000))>length(which(data_buy_jingdong$income>10000))#显示TRUE
+jingdong_income<-mean(data_buy_jingdong$income)
+taobao_income<-mean(data_buy_taobao$income)
+#比较如上两个数值仍然可以发现在淘宝消费的人群普遍收入要低于在京东消费的人群
+```
+
+结论5.2.
+
+: 我们通过如下代码(\textbf{length(which(data_buy_taobao$income>10000))>length(which(data_buy_jingdong$income>10000))显示TRUE})可以看出高收入人群在淘宝购物的人数相对于在京东购物的人数多一小部分,但是从低收入人群的角度，更多人会选择去淘宝进行消费.比较如上两个数值仍然可以发现在淘宝消费的人群普遍收入要低于在京东消费的人群，这就印证了我们的上述猜想，线上购物平台同线下购物平台一样，对于消费层次有着大众默认的划分，这另一方满也从侧面体现出京东平台的高质量商品或许会多余淘宝且其售后保障或许会比淘宝更加优越
+
+### 购物平台与是否参加活动与是否使用花呗\&白条的关系
+
+在传统的购物方式与购物理念中，我们秉持着货比三家的购物理念，那么在线上购物中这种理念是否依旧存在呢，即我们以下分析平台的折扣活动与对花呗\&白条的使用是否会对其自身的销售产生影响
+
+```{r,echo=FALSE,warning=FALSE}
+#下面统计各平台中参加活动（砍价、盖楼）&是否使用花呗白条的情况
+patt_forexcecon1<-rbind(table(data_buy_jingdong$excecon),table(data_buy_pindd$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_mall$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_suning$excecon))
+patt_forexcecon1<-rbind(patt_forexcecon1,table(data_buy_taobao$excecon))
+
+
+rownames(patt_forexcecon1)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(patt_forexcecon1)<-c("no  huabei","use of huabei")
+
+#见图中紫线能够发现，对于其他电子平台来讲使用花呗白条等工具的人的数量要高于不使用的人的数量，但是对于传统购物方式——商场来讲，是否使用这两种人群数量几乎是相等，这符合我们的直觉
+
+patt_foractivity1<-rbind(table(data_buy_jingdong$activity),table(data_buy_pindd$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_mall$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_suning$activity))
+patt_foractivity1<-rbind(patt_foractivity1,table(data_buy_taobao$activity))
+
+
+rownames(patt_foractivity1)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(patt_foractivity1)<-c("no activity","join activity")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(patt_forexcecon1,beside=TRUE,col=c("red","blue","green","orange","pink"))
+legend("top",fill=c("red","blue","green","orange","pink"),legend=c("JD","Pin DD","Mall","Suning","Tao Bao"),ncol=2)
+abline(h=6,col="purple")
+barplot(patt_foractivity1,beside=TRUE,col=c("red","blue","green","orange","pink"))
+legend("topright",fill=c("red","blue","green","orange","pink"),legend=c("JD","Pin DD","Mall","Suning","Tao Bao"),ncol=2)
+abline(h=5,col="purple")
+
+#同理于是否参与活动的思路，我们可以得出相同的结论。
+```
+
+结论5.3.
+
+: 见图中紫线能够发现，对于其他电子平台来讲使用花呗白条等工具的人的数量要高于不使用的人的数量，但是对于传统购物方式——商场来讲，是否使用这两种人群数量几乎是相等，这符合我们的直觉
+
+### 平台购买量与是否参加活动的关系
+
+在线下购物中我们不难发现，在商场促销阶段购买的人数通常会远远超出非促销阶段的购物人数，以下我们分析这种局势是否还会持续到线上购物平台中
+
+```{r,echo=FALSE,warning=FALSE}
+#平台购买量与是否参加活动的关系
+suppressMessages(library(gridExtra))
+data_buy[which(data_buy$activity == 0), 7] <- "NO"
+data_buy[which(data_buy$activity == 1), 7] <- "YES"
+data_buy[which(data_buy$excecon == 1), 8] <- "NO"
+data_buy[which(data_buy$excecon == 0), 8] <- "Yes"
+
+data_buy_jingdong <- data_buy[ind.jingdong,]
+data_buy_pindd <- data_buy[ind.pindd,]
+data_buy_mall <- data_buy[ind.mall,]
+data_buy_suning <- data_buy[ind.suning,]
+data_buy_taobao <- data_buy[ind.taobao,]
+
+
+p.jingdong <- ggplot(data_buy_jingdong, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join in activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("jingdong") + theme(plot.title=element_text(hjust=0.5))
+
+p.pindd <- ggplot(data_buy_pindd, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join in activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("pindd") + theme(plot.title=element_text(hjust=0.5))
+
+p.mall <- ggplot(data_buy_mall, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("mall") + theme(plot.title=element_text(hjust=0.5))
+
+p.suning <- ggplot(data_buy_suning, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("suning") + theme(plot.title=element_text(hjust=0.5))
+
+p.taobao <- ggplot(data_buy_taobao, aes(x = activity)) + geom_bar(color = "white", fill = "pink") + labs(x="join activity or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("taobao") + theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.jingdong, p.pindd, p.mall, p.suning, p.taobao, ncol=2)
+
+
+#由平台购买量与是否参与活动的柱状图可以观察出：我们上述分析出购买量最大的两个平台：京东和淘宝的受众选择该平台购买商品受平台活动力度影响小，而其余购买量小的平台其受平台活动力度却相对较大，这说明：京东和淘宝两个线上购物平台已经成为了大众线上消费的首选，而且即使没有双十一的活动价，大众仍倾向于在这两个平台进行购物，这两个平台已初步建立起了公众线上购物的认可度
+```
+
+结论5.4.
+
+: 由平台购买量与是否参与活动的柱状图可以观察出：我们上述分析出购买量最大的两个平台：京东和淘宝的受众选择该平台购买商品受平台活动力度影响小，而其余购买量小的平台其受平台活动力度却相对较大，这说明：京东和淘宝两个线上购物平台已经成为了大众线上消费的首选，而且即使没有双十一的活动价，大众仍倾向于在这两个平台进行购物，这两个平台已初步建立起了公众线上购物的认可度
+
+### 平台购买量与是否使用花呗\&白条的关系
+
+传统的购物模式中我们可以通过信用卡进行透支以为购物人群提供更便捷的支付方式，那么我们思考信用卡透支的进化版本花呗\&白条是否会对平台购买量产生一定的影响
+
+```{r,echo=FALSE,warning=FALSE}
+#平台购买量与是否允许使用花呗的关系
+suppressMessages(library(gridExtra))
+
+
+p.jingdong <- ggplot(data_buy_jingdong, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("jingdong") + theme(plot.title=element_text(hjust=0.5))
+
+p.pindd <- ggplot(data_buy_pindd, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("pindd") + theme(plot.title=element_text(hjust=0.5))
+
+p.mall <- ggplot(data_buy_mall, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("mall") + theme(plot.title=element_text(hjust=0.5))
+
+p.suning <- ggplot(data_buy_suning, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("suning") + theme(plot.title=element_text(hjust=0.5))
+
+p.taobao <- ggplot(data_buy_taobao, aes(x = excecon)) + geom_bar(color = "white", fill = "blue") + labs(x="use huabei or not", y="counts") + theme(axis.text.x = element_text(angle=45, hjust=1)) + ggtitle("taobao") + theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.jingdong, p.pindd, p.mall, p.suning, p.taobao, ncol=2)
+
+
+#由平台购买量与是否参与活动的柱状图可以观察出：不同于是否参与活动对平台购买量的影响，是否可以使用花呗与平台购买量大小呈正相关趋势，说明花呗现阶段对大众如何购物，在哪购物已经起到了决定性因素，尤其是部分新兴的小型购物平台，如果不支持花呗作为支付方式，可能会最终失去本就稀少的购物人群，这也从侧面反映出传统购物方式逐渐失去大众喜爱的原因并凸显出当代社会环境下人们超前消费的理念进一步增强，而这也成为了各类线上平台促进消费的一种有力方式
+```
+
+结论5.5.
+
+: 由平台购买量与是否参与活动的柱状图可以观察出：不同于是否参与活动对平台购买量的影响，是否可以使用花呗与平台购买量大小呈正相关趋势，说明花呗现阶段对大众如何购物，在哪购物已经起到了决定性因素，尤其是部分新兴的小型购物平台，如果不支持花呗作为支付方式，可能会最终失去本就稀少的购物人群，这也从侧面反映出传统购物方式逐渐失去大众喜爱的原因并凸显出当代社会环境下人们超前消费的理念进一步增强，而这也成为了各类线上平台促进消费的一种有力方式
+
+### 购买平台与评价的关系
+
+传统的购物模式中我们可以通过信用卡进行透支以为购物人群提供更便捷的支付方式，那么我们思考信用卡透支的进化版本花呗\&白条是否会对平台购买量产生一定的影响
+
+```{r,echo=FALSE,warning=FALSE}
+#下面来分析各平台的评价情况，同时来用收入（？）来考虑评价是否对平台的收入有影响
+
+data_platandatti<-cbind(table(data_buy_jingdong$atti),table(data_buy_pindd$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_mall$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_suning$atti))
+data_platandatti<-cbind(data_platandatti,table(data_buy_taobao$atti))
+
+colnames(data_platandatti)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+rownames(data_platandatti)<-c("neu","obj","sup")
+
+#第一个发现（结合之前的几幅图表）：商场中购物的人三种态度完全相等，结合上之前图中商场购物的人参加活动与不参加活动；使用花呗白条与不使用，两种对立人群的数量几乎相等，可以看出在互联网购物时代，商场的促销已经不能勾起人们的购物热情，反过来，可能人们也更愿意进行网上购物，对于实体商场不是十分关心
+#能够看出所有购物平台中持中立意见的人占少数，像京东和天猫这种互联网巨头平台中消费体验差的人数大概比支持的人数的一半多一点
+
+
+data_platandatti2<-rbind(table(data_buy_jingdong$atti),table(data_buy_pindd$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_mall$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_suning$atti))
+data_platandatti2<-rbind(data_platandatti2,table(data_buy_taobao$atti))
+
+rownames(data_platandatti2)<-c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao")
+colnames(data_platandatti2)<-c("neu","obj","sup")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(data_platandatti,beside=TRUE,col=rainbow(3))
+legend("topleft",fill=rainbow(3),legend=c("neu","obj","sup"))
+abline(h=length(data_buy_mall[which(data_buy_mall$atti=="sup"),"atti"]),col="orange")
+barplot(data_platandatti2,beside=TRUE,col=rainbow(5))
+legend("topleft",fill=rainbow(5),legend=c("Jing Dong","Pin DuoDuo","Mall","Suning","Tao Bao"))
+
+
+data_buy_sup<-data_buy[which(data_buy$atti=="sup"),]
+data_buy_neu<-data_buy[which(data_buy$atti=="neu"),]
+data_buy_obj<-data_buy[which(data_buy$atti=="obj"),]
+
+pat_actatti<-rbind(table(data_buy_sup$activity),table(data_buy_neu$activity))
+pat_actatti<-rbind(pat_actatti,table(data_buy_obj$activity))
+
+
+rownames(pat_actatti)<-c("sup","neu","obj")
+colnames(pat_actatti)<-c("no activity","yes activity")
+
+pat_exceatti<-rbind(table(data_buy_sup$excecon),table(data_buy_neu$excecon))
+pat_exceatti<-rbind(pat_exceatti,table(data_buy_obj$excecon))
+
+
+rownames(pat_exceatti)<-c("sup","neu","obj")
+colnames(pat_exceatti)<-c("no  huabei","use huabei")
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+barplot(pat_actatti,beside=TRUE,col=c("red","blue","green"))
+legend("topright",fill=c("red","blue","green"),legend=c("sup","neu","obj"))
+abline(h=11,col="orange")
+barplot(pat_exceatti,beside=TRUE,col=c("red","blue","green"))
+legend("topright",fill=c("red","blue","green"),legend=c("sup","neu","obj"))
+abline(h=11,col="orange")
+
+#remark:淘宝的超前消费分布近似是以0为中心，使用花呗的人数比不使用的偏多，不参加活动的比参加活动的偏多（不参加活动为了消费当然要用花呗，这个很合理），淘宝平台中支持与反对的人比例近似为8:5，这是否会说明评价具有被屏蔽作用（对人群的消费没有指导意义？
+```
+
+结论5.6.
+
+: 结合之前的几幅图表我们首先发现发现：
+
+ - 商场中购物的人三种态度完全相等，结合上之前图中商场购物的人参加活动与不参加活动；使用花呗白条与不使用，两种对立人群的数量几乎相等，可以看出在互联网购物时代，商场的促销已经不能勾起人们的购物热情，反过来，可能人们也更愿意进行网上购物，对于实体商场不是十分关心
+ - 我们能够看出所有购物平台中持中立意见的人占少数，像京东和天猫这种互联网巨头平台中消费体验差的人数大概比支持的人数的一半多一点
+ - 我们还可以发现：淘宝的超前消费分布近似是以0为中心，使用花呗的人数比不使用的偏多，不参加活动的比参加活动的偏多（不参加活动为了消费当然要用花呗，这个很合理），淘宝平台中支持与反对的人比例近似为8:5，这里我们进一步对评价与是否使用花呗\&白条的关系可以发现，是否使用花呗\&白条对于评价没有直接的影响，由于这里的数据表示购物人群消费后的评价，我们无法获知他们在消费前所接触到的评价的种类的相对情况，因此这或许说明评价具有一定的屏蔽作用，其与消费平台并无直接的互相决定的关系，受众不会因为平台的先导因素而在评价时产生偏颇
+
+### 评价与收入的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#支持和反对的人的收入如何呢？
+
+data_sup<-data_buy[which(data_buy$atti=="sup"),]
+data_obj<-data_buy[which(data_buy$atti=="obj"),]
+
+
+p.sup<-ggplot(data_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)
+p.obj<-ggplot(data_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.sup,p.obj,ncol=2)
+
+#明显看出支持的人群高收入的比较多（有很多的离群值），同时也说明支持的人群收入水平分布区间比较广泛，相反也可以看出来反对的人群收入比较低，从而对于促销活动有反感情绪（这个符合直观啊）
+```
+
+结论5.7.
+
+: 明显看出支持的人群高收入的比较多（有很多的离群值），同时也说明支持的人群收入水平分布区间比较广泛，相反也可以看出来反对的人群收入比较低，从而对于促销活动有反感情绪，这说明了人们的收入水平对于是否支持促销活动的推广有着直接的决定性因素
+
+```{r,echo=FALSE,warning=FALSE}
+#专注于某个平台中支持和反对的人的收入呢？
+data_buy_jingdong<-data_buy[ind.jingdong,]
+data_buy_taobao<-data_buy[ind.taobao,]
+data_j_sup<-data_buy_jingdong[which(data_buy_jingdong$atti=="sup"),]
+data_j_obj<-data_buy_jingdong[which(data_buy_jingdong$atti=="obj"),]
+data_t_sup<-data_buy_taobao[which(data_buy_taobao$atti=="sup"),]
+data_t_obj<-data_buy_taobao[which(data_buy_taobao$atti=="obj"),]
+
+
+p.j.sup<-ggplot(data_j_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup in JD")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)#JD=京东
+p.j.obj<-ggplot(data_j_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj in JD")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.j.sup,p.j.obj,ncol=2)
+
+
+
+p.t.sup<-ggplot(data_t_sup,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("distribution of income of sup in TB")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun=median,geom="point",shape=5,size=4)#TB=淘宝
+p.t.obj<-ggplot(data_t_obj,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+ggtitle("distribution of income of obj in TB")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+stat_summary(fun="median",geom="point",shape=5,size=4)
+grid.arrange(p.t.sup,p.t.obj,ncol=2)
+
+#两大购物平台，总是支持的人的收入水平更高一点，我们之前也看到了京东的超前消费（实际与预期）呈现一点偏峰分布，这里京东支持的人的收入分布明显要比反对的人收入分布要广，可能是这个原因导致超前消费的水平不均匀，相比之下，淘宝两类人的收入区间大致相似（尽管有离群值但是箱子比较正）
+```
+
+结论5.8.
+
+: 两大购物平台，总是支持的人的收入水平更高一点，我们之前也看到了京东的超前消费（实际与预期）呈现一点偏峰分布，这里京东支持的人的收入分布明显要比反对的人收入分布要广，我们由此推断可能是这个原因导致超前消费的水平不均匀，相比之下，淘宝两类人的收入区间大致相似（尽管有离群值但是箱线图相对于京东的更加端正）
+
+### 评价与是否超前消费的关系
+
+```{r,echo=FALSE,warning=FALSE}
+
+p.bar.supjingdong<-ggplot(data_j_sup,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Sup of Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.bar.objjingdong<-ggplot(data_j_obj,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Obj of Jing Dong")+theme(plot.title=element_text(hjust=0.5))
+p.bar.suptaobao<-ggplot(data_t_sup,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Sup pf Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+p.bar.objtaobao<-ggplot(data_t_obj,aes(x=calm))+geom_bar(color="black",fill="lightblue")+labs(x="exceed or not",y="counts")+theme(axis.text.x = element_text(angle=45, hjust=1))+ggtitle("Obj of Tao Bao")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.bar.supjingdong,p.bar.objjingdong,p.bar.suptaobao,p.bar.objtaobao,ncol=2)
+
+#很明显，京东消费的，尤其是支持双十一消费的人群剁手频率更高（这里几乎没有适度消费的都是预期低于实际），相反，淘宝中的人群要均衡得多，这也解释了为什么京东平台上超前消费的bar要偏峰而淘宝的峰在0附近，从上面图片中我们也可以看出在京东消费的人群的收入水平要比淘宝要高（要看相对比例），这些数据是自洽的
+#从支持和反对人数的角度，我们知道京东和淘宝分别的支持反对人数比例要近似，但是在京东消费的人数要比淘宝的小，因此在淘宝消费更能兼顾各项信息使得在淘宝消费的人群做到货比三家，理性消费，但是京东不一定如此，因此不理性消费（剁手）现象还是更加普遍
+```
+
+结论5.9.
+
+: 由图中我们可以很明显地看出，选择京东平台进行消费的，尤其是支持双十一消费的人群剁手频率更高（这里几乎没有适度消费的都是预期低于实际），相反，淘宝中的人群要均衡得多，这也解释了为什么京东平台上超前消费的bar要偏峰而淘宝的峰在0附近，从上面图片中我们也可以看出在京东消费的人群的收入水平要比淘宝要高（要看相对比例），这些数据是自洽的.我们再从支持和反对人数的角度来分析，我们知道京东和淘宝分别的支持反对人数比例要近似，但是在京东消费的人数要比淘宝的小，因此在淘宝消费更能兼顾各项信息使得在淘宝消费的人群做到货比三家，理性消费，但是京东不一定如此，因此不理性消费（剁手）现象还是更加普遍
+
+## 省份
+
+```{r,echo=FALSE,warning=FALSE}
+#地区
+
+
+ggplot(data_buy, aes(x = loc, fill = loc)) + geom_bar() + 
+theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("region") + ylab("counts")
+
+
+
+ggplot(data_notbuy, aes(x = loc, fill = loc)) + geom_bar() + 
+theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("region") + ylab("counts")
+
+#仅仅通过省份柱状图，我们无法判定购买力是否与省份直接相关，因为某些大省份比如：北京，广东等，在具有高参与购买人数的同时，未参与购买的人数同样很多，因此我们将省份与其他因素结合分析
+```
+
+![](C:/Users/mac/Desktop/bindfigure.jpg)
+
+结论6.1.
+
+: 仅仅通过省份柱状图，我们无法判定购买力是否与省份直接相关，因为某些大省份比如：北京，广东等，在具有高参与购买人数的同时，未参与购买的人数同样很多，因此我们将省份与其他因素结合分析
+
+## 18-25岁全日制学生(以下简称目标群体)
+
+由下图我们不难发现参与双十一购物的18-25岁全日制学生为大多数，因此我们以下主要研究消费的18-25岁全日制学生的相关问题
+
+```{r,echo=FALSE,warning=FALSE}
+#18~25岁全日制学生情况
+#table(data_buy$job, data_buy$age)
+#table(data_notbuy$job, data_notbuy$age)
+#初看数据，我们发现18~25岁的全日制学生群体占据了70%，故我们将该部分群体单独拿出来进行分析
+
+ind.tar <- which(data$job == "全日制学生" & data$age == "18~25岁")
+ind.buy.tar <- which(data_buy$job == "全日制学生" & data_buy$age == "18~25岁")
+ind.notbuy.tar <- which(data_notbuy$job == "全日制学生" & data_notbuy$age == "18~25岁")
+data_tar <- data[ind.tar,]
+data_buytar <- data_buy[ind.buy.tar,]
+data_notbuytar <- data_notbuy[ind.notbuy.tar,]
+
+
+ggplot(data_tar, aes(x = "", fill = buy_ornot)) + geom_bar() + coord_polar(theta = "y", start = 0) + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("buy or not") + ylab("counts")
+
+#由该图我们不难发现参与双十一购物的18~25岁全日制学生为大多数，因此我们以下主要研究消费的18~25岁全日制学生的相关问题
+
+```
+
+### 目标群体的收入于消费是否理智的关系
+
+```{r,echo=FALSE,warning=FALSE}
+data_buytar$calm<-as.character(data_buytar$calm)
+
+ggplot(data_buytar, aes(x = incometag, fill = as.factor(calm))) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("Whether income and consumption are rational or not") + ylab("counts")
+
+#由此我们可以看出18~25岁全日制学生的收入主要在3000元以下且对于消费的理智程度较高，该群体中大部分可以做到理智消费但仍有数量客观的群体在消费过程中十分不理智，这表明18~25岁全日制学生中大部分受收入限制，可以实现较合理的理财观念，但是仍有部分样本在双十一购物中体现出极强的冲动心理
+```
+
+结论7.1.
+
+: 由此我们可以看出18-25岁全日制学生的收入主要在3000元以下且对于消费的理智程度较高，该群体中大部分可以做到理智消费但仍有数量客观的群体在消费过程中十分不理智，这表明18-25岁全日制学生中大部分受收入限制，可以实现较合理的理财观念，但是仍有部分样本在双十一购物中体现出极强的冲动心理
+
+
+### 目标群体和是否参与活动以及是否使用花呗\&白条的关系
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+ggplot(data_buytar, aes(x = excecon, fill = as.factor(activity))) + geom_bar() + coord_polar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("relationship between activity and huabei") + ylab("counts")
+
+#由以下玫瑰图我们可以看出18~25岁全日制学生群体中大部分在参与双十一购物中都使用了花呗进行超前消费，但参与活动的人数却相对较少，这一方面反映出当代大学生群体理财观念的缺失，同时也反映出大学生群体在购物时对于所购商品是否有活动并不关心，即活动价对于该群体诱惑力不强
+```
+
+结论7.2.
+
+: 由以上玫瑰图我们可以看出18-25岁全日制学生群体中大部分在参与双十一购物中都使用了花呗进行超前消费，但参与活动的人数却相对较少，这一方面反映出当代大学生群体理财观念的缺失，同时也反映出大学生群体在购物时对于所购商品是否有活动并不关心，即活动价对于该群体诱惑力不强
+
+
+### 目标群体与所售产品种类的关系
+
+
+```{r,echo=FALSE,warning=FALSE}
+#种类
+index.type1<-as.vector(unlist(strsplit(data_buytar[1,4],split="┋")))
+for(i in 2:nrow(data_buytar)){
+  index.type1<-c(index.type1,as.vector(unlist(strsplit(data_buytar[i,4],split="┋"))))
+}
+#table(index.type1)
+
+suppressMessages(library(tidyverse))
+ind.cp1<-which(str_detect(data_buytar$type,"电脑办公")==TRUE)
+ind.clo1<-which(str_detect(data_buytar$type,"服饰鞋靴")==TRUE)
+ind.furn1<-which(str_detect(data_buytar$type,"家居百货")==TRUE)
+ind.elefac1<-which(str_detect(data_buytar$type,"家用电器")==TRUE)
+ind.makeup1<-which(str_detect(data_buytar$type,"美妆个护")==TRUE)
+ind.food1<-which(str_detect(data_buytar$type,"食品生鲜")==TRUE)
+ind.tek1<-which(str_detect(data_buytar$type,"手机数码")==TRUE)
+ind.book1<-which(str_detect(data_buytar$type,"图书文娱")==TRUE)
+
+ind.other.bag1<-which(str_detect(data_buytar$type,"其他〖包包 进口药品 抱枕 运动装备〗")==TRUE)
+#认为包包，进口药品，抱枕都属于家居百货，运动装备属于服饰鞋靴
+if(sum(ind.furn1==ind.other.bag1)==0) ind.furn1<-c(ind.furn1,ind.other.bag1)
+if(sum(ind.clo1==ind.other.bag1)==0) ind.clo1<-c(ind.clo1,ind.other.bag1)
+
+ind.other.surr1<-which(str_detect(data_buytar$type,"其他〖fpx冠军周边〗")==TRUE)
+#认为冠军周边属于图书文娱
+if(sum(ind.book1==ind.other.surr1)==0) ind.book1<-c(ind.book1,ind.other.surr1)
+
+#其他〖宝宝的尿不湿和睡袋 玩具〗 该数据已经购买过家居百货因此不需要添加
+
+ind.other.toy1<-which(str_detect(data_buytar$type,"其他〖孩子的玩具〗")==TRUE)
+#认为孩子的玩具属于属于家居百货
+if(sum(ind.furn1==ind.other.toy1)==0) ind.furn1<-c(ind.furn1,ind.other.toy1)
+
+ind.other.fitness1<-which(str_detect(data_buytar$type,"其他〖健身用品〗")==TRUE)
+#认为健身用品属于属于家居百货
+if(sum(ind.furn1==ind.other.fitness1)==0) ind.furn1<-c(ind.furn1,ind.other.fitness1)
+
+#猫粮属于家居百货但该人已在家居百货中归类，不需再次添加
+
+ind.other.model1<-which(str_detect(data_buytar$type,"其他〖模型〗")==TRUE)
+#认为模型属于属于文娱
+if(sum(ind.book1==ind.other.model1)==0) ind.book1<-c(ind.book1,ind.other.model1)
+
+ind.other.vedio1<-which(str_detect(data_buytar$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book1==ind.other.vedio1)==0) ind.book1<-c(ind.book1,ind.other.vedio1)
+
+ind.other.vedio1<-which(str_detect(data_buytar$type,"其他〖视频会员〗")==TRUE)
+#认为视频会员属于属于文娱
+if(sum(ind.book1==ind.other.vedio1)==0) ind.book1<-c(ind.book1,ind.other.vedio1)
+
+ind.other.bat1<-which(str_detect(data_buytar$type,"其他〖网球拍〗")==TRUE)
+#认为网球拍属于属于家居百货
+if(sum(ind.furn1==ind.other.bat1)==0) ind.furn1<-c(ind.furn1,ind.other.bat1)
+
+ind.other.class1<-which(str_detect(data_buytar$type,"其他〖线上课程〗")==TRUE)
+#认为线上课程属于属于电脑办公
+if(sum(ind.cp1==ind.other.class1)==0) ind.cp1<-c(ind.cp1,ind.other.class1)
+
+ind.other.case1<-which(str_detect(data_buytar$type,"其他〖行李箱〗")==TRUE)
+#认为行李箱属于属于家居百货
+if(sum(ind.furn1==ind.other.case1)==0) ind.furn1<-c(ind.furn1,ind.other.case1)
+
+ind.other.medi1<-which(str_detect(data_buytar$type,"其他〖医疗保健〗")==TRUE)
+#认为医疗保健属于属于家居百货
+if(sum(ind.furn1==ind.other.medi1)==0) ind.furn1<-c(ind.furn1,ind.other.medi1)
+
+ind.type1<-list(ind.book1,ind.clo1,ind.cp1,ind.elefac1,ind.food1,ind.furn1,ind.makeup1)
+
+```
+
+```{r,echo=FALSE,warning=FALSE}
+type_kind1 <- data.frame(kind1 = NA)
+type_kind1[1:47, 1] <- "ind.book"
+type_kind1[48:212, 1] <- "ind.clo"
+type_kind1[213:226, 1] <- "ind.cp"
+type_kind1[227:241, 1] <- "ind.elefac"
+type_kind1[242:300, 1] <- "ind.food"
+type_kind1[301:393, 1] <- "ind.furn"
+type_kind1[394:531, 1] <- "ind.makeup"
+
+
+#ggplot(type_kind1, aes(x = kind1, fill = kind1)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("types of buy") + ylab("counts")
+
+
+
+ggplot(type_kind1, aes(x = kind1, fill = kind1)) + geom_bar() + coord_polar(theta = "y", start = 0)
+
+#由图像我们不难看出该群体在购买商品种类上与全部样本没有太大区别，主要购买量仍集中在服饰与化妆品类购买物品上
+```
+
+结论7.4.
+
+: 由图像我们不难看出该群体在购买商品种类上与全部样本没有太大区别，主要购买量仍集中在服饰与化妆品类购买物品上
+
+### 目标群体与为谁购买的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#为谁购买
+index.for1<-as.vector(unlist(strsplit(data_buytar[1,5],split="┋")))
+for(i in 2:nrow(data_buytar)){
+  index.for1<-c(index.for1,as.vector(unlist(strsplit(data_buytar[i,5],split="┋"))))
+}
+#table(index.for1)#寻找for中有什么门类
+ind.pet1<-which(str_detect(data_buytar[,5],"宠物")==TRUE)
+ind.parent1<-which(str_detect(data_buytar[,5],"父母")==TRUE)
+ind.lover1<-which(str_detect(data_buytar[,5],"恋人或伴侣")==TRUE)
+ind.relative1<-which(str_detect(data_buytar[,5],"其他亲朋好友")==TRUE)
+ind.self1<-which(str_detect(data_buytar[,5],"自己")==TRUE)
+ind.kid1<-which(str_detect(data_buytar[,5],"其他〖孩子〗")==TRUE)
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖家人（孩子）〗")==TRUE))
+#老人几乎不购物，子女当然就是孩子
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖子女〗")==TRUE))
+ind.kid1<-c(ind.kid1,which(str_detect(data_buytar[,5],"其他〖孩子！怎么能漏了这个选项〗")==TRUE))
+
+ind.other.wash1<-which(str_detect(data_buytar[,5],"其他〖寝室买洗衣液〗")==TRUE)
+#认为洗衣液是为了给自己用
+if(sum(ind.self1==ind.other.wash1)==0) ind.self1<-c(ind.self1,ind.other.wash1)
+
+ind.for1<-list(ind.pet1,ind.parent1,ind.lover1,ind.relative1,ind.self1,ind.kid1)
+```
+
+```{r,echo=FALSE,warning=FALSE}
+type_fw <- data.frame(forw = NA)
+type_fw[1:2, 1] <- "ind.pet"
+type_fw[3:55, 1] <- "ind.parent"
+type_fw[56:94, 1] <- "ind.lover"
+type_fw[95:124, 1] <- "ind.relative"
+type_fw[125:339, 1] <- "ind.self"
+
+
+#ggplot(type_fw, aes(x = forw, fill = forw)) + geom_bar() + theme(axis.text.x = element_text(angle=45, hjust=1)) + xlab("for who") + ylab("counts")
+
+
+
+ggplot(type_fw, aes(x = forw, fill = forw)) + geom_bar() + coord_polar(theta = "y", start = 0)
+
+#我们由图像可以看出，该群体在为谁而买方面更加侧重于为自己购买，这从某种程度上体现出了该群体以自我为中心的观念，也表现出该群体目前还不需要对家庭承担起过重的责任，只需要满足自身需求即可
+```
+
+结论7.5.
+
+: 我们由图像可以看出，该群体在为谁而买方面更加侧重于为自己购买，这从某种程度上体现出了该群体以自我为中心的观念，也表现出该群体目前还不需要对家庭承担起过重的责任，只需要满足自身需求即可
+
+## 总体性别与目标群体性别(以下简称第二类讨论群体)
+
+### 初步分析
+
+
+```{r,echo=FALSE,warning=FALSE}
+#对性别的分析(全体)
+#table(data_buy$gender)#男女不均衡
+
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_buy[which(data_buy$gender=="male"),"income"],main="income of male of consuming",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+hist(data_buy[which(data_buy$gender=="female"),"income"],main="income of female of consuming",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+#由男女消费与收入的关系可以看出：女性的收入水平与消费的正相关性更强，由此可看出女性在面对消费时会更好的根据自己的收入安排支出，理财头脑更强
+
+
+#将性别与18~25岁全日制学生拿出来分析
+#table(data_buytar$gender)
+#男女比相对于全体样本有所改善
+
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_buytar[which(data_buytar$gender=="male"),"income"],main="incometar of male of consuming",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+hist(data_buytar[which(data_buytar$gender=="female"),"income"],main="incometar of female of consuming",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+```
+
+结论8.1.
+
+: 全体性别比不均衡，且由男女消费与收入的关系可以看出：女性的收入水平与消费的正相关性更强，由此可看出女性在面对消费时会更好的根据自己的收入安排支出，理财头脑更强.目标群体性别比相较于总体性别比有所改善，且由男女消费与收入的关系可以看出：女性的收入水平与消费的正相关性更强，由此可看出女性在面对消费时会更好的根据自己的收入安排支出，理财头脑更强
+
+### 第二类讨论群体与是否参与活动与是否使用花呗\&白条的关系
+
+```{r,echo=FALSE,warning=FALSE}
+#全部人群
+
+w1<-ggplot(data_buy, aes(x = activity, fill = gender)) + geom_bar()
+
+
+
+w2<-ggplot(data_buy, aes(x = excecon, fill = gender)) + geom_bar()
+grid.arrange(w1,w2,ncol=2)
+
+#目标群体
+
+w3<-ggplot(data_buytar, aes(x = activity, fill = gender)) + geom_bar()
+
+
+
+w4<-ggplot(data_buytar, aes(x = excecon, fill = gender)) + geom_bar()
+grid.arrange(w3,w4,ncol=2)
+
+#由上述两张图我们可以发现全部群体与目标人群在是否参与活动方面的性别特点大致相同，即男性更倾向于在购物中不参与活动，而女性参与活动与不参与活动的比例则大致相同，这从某方面可以体现出女性在消费中对活动的倾向更强烈，而男性则不然,但对于使用花呗和白条的情况则恰好相反，这说明群体使用花呗&白条的影响要大于参与活动的影响
+```
+
+结论8.2.
+
+: 由上述两组图我们可以发现全部群体与目标人群在是否参与活动方面的性别特点大致相同，即男性更倾向于在购物中不参与活动，而女性参与活动与不参与活动的比例则大致相同，这从某方面可以体现出女性在消费中对活动的倾向更强烈，而男性则不然，但对于使用花呗和白条的情况则恰好相反，这说明群体使用花呗\&白条的影响要大于参与活动的影响
+
+
+### 第二类讨论群体与所购商品种类的关系
+
+```{r,echo=FALSE,warning=FALSE}
+library(ggplot2)
+suppressMessages(library(gridExtra))
+
+data_buy_book <- data_buy[ind.book,]
+data_buy_clo <- data_buy[ind.clo,]
+data_buy_cp <- data_buy[ind.cp,]
+data_buy_elefac <- data_buy[ind.elefac,]
+data_buy_food <- data_buy[ind.food,]
+data_buy_furn <- data_buy[ind.furn,]
+data_buy_makeup <- data_buy[ind.makeup,]
+
+
+p.book <- ggplot(data_buy_book,aes(x = gender)) + geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo<-ggplot(data_buy_clo,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp<-ggplot(data_buy_cp,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("cp")+theme(plot.title=element_text(hjust=0.5))
+p.elefac<-ggplot(data_buy_elefac,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food<-ggplot(data_buy_food,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn<-ggplot(data_buy_furn,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup<-ggplot(data_buy_makeup,aes(x=gender))+geom_bar(color="white",fill="yellow")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book,p.clo,p.cp,p.elefac,p.food,p.furn,p.makeup,ncol=3)
+
+
+#我们可以由图像看出，对任意种类，女性的购买力均大于男性，这一方面说明了双十一参与购物的女性普遍偏多，另一方面该数据的产生也与样本量本身的性别偏颇有关，同时我们还可以发现电子产品的是唯一男性可以与女性购买量相差较小的产品，所以相对于其他更偏家具类的产品而言，男性对电子产品的偏好对于女性会更大一些，对于该种产品的了解度也会相对更深
+
+#目标群体
+data_buytar_book <- data_buytar[ind.book1,]
+data_buytar_clo <- data_buytar[ind.clo1,]
+data_buytar_cp <- data_buytar[ind.cp1,]
+data_buytar_elefac <- data_buytar[ind.elefac1,]
+data_buytar_food <- data_buytar[ind.food1,]
+data_buytar_furn <- data_buytar[ind.furn1,]
+data_buytar_makeup <- data_buytar[ind.makeup1,]
+
+
+p.book1 <- ggplot(data_buytar_book,aes(x = gender)) + geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("book")+theme(plot.title=element_text(hjust=0.5))
+p.clo1<-ggplot(data_buytar_clo,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("clothes")+theme(plot.title=element_text(hjust=0.5))
+p.cp1<-ggplot(data_buytar_cp,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("cp")+theme(plot.title=element_text(hjust=0.5))
+p.elefac1<-ggplot(data_buytar_elefac,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("electricity facility")+theme(plot.title=element_text(hjust=0.5))
+p.food1<-ggplot(data_buytar_food,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("food")+theme(plot.title=element_text(hjust=0.5))
+p.furn1<-ggplot(data_buytar_furn,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("furniture")+theme(plot.title=element_text(hjust=0.5))
+p.makeup1<-ggplot(data_buytar_makeup,aes(x=gender))+geom_bar(color="white",fill="green")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("makeup")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.book1,p.clo1,p.cp1,p.elefac1,p.food1,p.furn1,p.makeup1,ncol=3)
+
+
+#由于目标群体的男女比相对于全部样本有所改善，因而我们的分析更为准确；我们可以从图像中发现该群体任意种类商品的购买力均集中在女性群体中，男性群体的购买力呈现出极大的劣势，而且我们也可以看出目标人群女性对于服饰和化妆品的购买力仍占主导地位
+```
+
+结论8.3.
+
+: 
+
+ - 对全体人群：我们可以由图像看出，对任意种类，女性的购买力均大于男性，这一方面说明了双十一参与购物的女性普遍偏多，另一方面该数据的产生也与样本量本身的性别偏颇有关，同时我们还可以发现电子产品的是唯一男性可以与女性购买量相差较小的产品，所以相对于其他更偏家具类的产品而言，男性对电子产品的偏好对于女性会更大一些，对于该种产品的了解度也会相对更深.
+ - 由于目标群体的男女比相对于全部样本有所改善，因而我们的分析更为准确；我们可以从图像中发现该群体任意种类商品的购买力均集中在女性群体中，男性群体的购买力呈现出极大的劣势，而且我们也可以看出目标人群女性对于服饰和化妆品的购买力仍占主导地位
+
+### 第二类讨论群体与为谁而买的关系
+
+```{r,echo=FALSE,warning=FALSE}
+data_buy_pet <- data_buy[ind.pet,]
+data_buy_parent <- data_buy[ind.parent,]
+data_buy_lover <- data_buy[ind.lover,]
+data_buy_relative <- data_buy[ind.relative,]
+data_buy_self <- data_buy[ind.self,]
+data_buy_kid <- data_buy[ind.kid,]
+
+
+p.pet <- ggplot(data_buy_pet,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent <- ggplot(data_buy_parent,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover <- ggplot(data_buy_lover,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative <- ggplot(data_buy_relative, aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self <- ggplot(data_buy_self,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid <- ggplot(data_buy_kid,aes(x = gender)) + geom_bar(color="white",fill="purple")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.pet, p.parent,p.lover,p.relative,p.self,p.kid,ncol=3)
+
+
+#从数据中我们可以看出，女性对任意人群的购买量都远远大于男性，而男性更侧重于给恋人和自己进行购买，这从侧面反映出女性相对于男性更为顾家，而且或许还可以说明男性在恋爱中和婚姻中的重视程度不同，这反映出虽然当代社会倡导男女平等，但中国古代男主外女主内的传统仍未得到完全改善
+
+
+#目标人群
+data_buytar_pet <- data_buy[ind.pet1,]
+data_buytar_parent <- data_buy[ind.parent1,]
+data_buytar_lover <- data_buy[ind.lover1,]
+data_buytar_relative <- data_buy[ind.relative1,]
+data_buytar_self <- data_buy[ind.self1,]
+data_buytar_kid <- data_buy[ind.kid1,]
+
+
+p.pet1 <- ggplot(data_buytar_pet,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("pet")+theme(plot.title=element_text(hjust=0.5))
+p.parent1 <- ggplot(data_buytar_parent,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("parent")+theme(plot.title=element_text(hjust=0.5))
+p.lover1 <- ggplot(data_buytar_lover,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("lover")+theme(plot.title=element_text(hjust=0.5))
+p.relative1 <- ggplot(data_buytar_relative, aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("relative")+theme(plot.title=element_text(hjust=0.5))
+p.self1 <- ggplot(data_buytar_self,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("self")+theme(plot.title=element_text(hjust=0.5))
+p.kid1 <- ggplot(data_buytar_kid,aes(x = gender)) + geom_bar(color="white",fill="blue")+labs(x="gender",y="counts")+theme(axis.text.x = element_text(angle=60, hjust=1))+ggtitle("kid")+theme(plot.title=element_text(hjust=0.5))
+
+grid.arrange(p.pet1, p.parent1,p.lover1,p.relative1,p.self1,ncol=3)
+
+
+#首先我们可以发现目标群体没有为孩子购买，这符合我们目标群体的年龄及职业特点，其次我们不难发现，和全部样本的分布相同，女性为其他人群的购买量始终大于男性群体，但就宠物而言，男性与女性的购买量一致是因为目标人群中均只有一位男性与一位女性为宠物购买了商品，对比于全部样本的分析，我们发现目标人群或许在对宠物的喜爱程度上没有太大差异，相较于全部样本，男性随着年龄递增，可能会丧失一部分对宠物的喜爱，以及宠物方面的事情已经交由家庭中女性打理的猜测
+```
+
+结论8.4.
+
+: 
+ - 对全体人群：从数据中我们可以看出，女性对任意人群的购买量都远远大于男性，而男性更侧重于给恋人和自己进行购买，这从侧面反映出女性相对于男性更为顾家，而且或许还可以说明男性在恋爱中和婚姻中的重视程度不同
+ - 首先我们可以发现目标群体没有为孩子购买，这符合我们目标群体的年龄及职业特点，其次我们不难发现，和全部样本的分布相同，女性为其他人群的购买量始终大于男性群体，但就宠物而言，男性与女性的购买量一致是因为目标人群中均只有一位男性与一位女性为宠物购买了商品，对比于全部样本的分析，我们发现目标人群或许在对宠物的喜爱程度上没有太大差异，相较于全部样本，男性随着年龄递增，可能会丧失一部分对宠物的喜爱，以及宠物方面的事情已经交由家庭中女性打理的猜测
+ 
+# 双十一未参与购物人群数据分析
+
+下面我们对未参与购物人群进行分析
+
+## 由收入情况分析
+
+```{r,echo=FALSE,warning=FALSE}
+#收入情况
+#粗看数据
+glimpse<-rbind(summary(data_notbuy$income),summary(data_buy$income))
+rownames(glimpse)<-c("不购物","购物")
+#通过glimpse这个数据能够发现从3/4分位数开始购物的人的收入水平要更高，但是两者的低收入到中位数数据基本近似，因此我们猜测不消费的人群收入要更紧凑一些，而购物人群收入会出现较多离群值（超高收入）
+
+p.nincome<-ggplot(data_notbuy,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  ggtitle("income of not buy")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+
+  stat_summary(fun="mean",geom="point",shape=5,size=4)+geom_hline(aes(yintercept=3300),color="blue")
+p.income<-ggplot(data_buy,aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  ggtitle("income of buy")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))+
+  stat_summary(fun="mean",geom="point",shape=5,size=4)+geom_hline(aes(yintercept=3300),color="blue")
+#grid.arrange(p.nincome,p.income,ncol=2)
+
+#购物人群有多个离群点，说明高消费人群中购物的比较多,同时由箱子的区间（蓝色线）可以看出不购物人群的低收入人群要比购物人群的低收入人群收入要低
+
+
+p.n.hist<-ggplot(data_notbuy,aes(x=income))+geom_histogram(aes(y=..density..),color="black",fill="white")+geom_density(alpha=0.2,fill="green")
+p.hist<-ggplot(data_buy,aes(x=income))+geom_histogram(aes(y=..density..),color="black",fill="white")+geom_density(alpha=0.2,fill="green")
+grid.arrange(p.n.hist,p.hist,ncol=2)
+
+#hist跟boxplot各取所需
+```
+
+
+结论9.1.
+
+: 首先我们通过glimpse这个数据(具体数据见附加代码)能够发现从3/4分位数开始购物的人的收入水平要更高，但是两者的低收入到中位数数据基本近似，因此我们猜测不消费的人群收入要更紧凑一些，而购物人群收入会出现较多离群值(超高收入).其次在画图过程中我们发现购物人群有多个离群点，说明高消费人群中购物的比较多,同时由箱子的区间（蓝色线）可以看出不购物人群的低收入人群要比购物人群的低收入人群收入要低
+
+## 由评价分析
+
+```{r,echo=FALSE,warning=FALSE}
+frame<-cbind(table(data_notbuy$atti),table(data_buy$atti))
+frame[1,2]=0;frame[2:4,2]<-table(data_buy$atti)
+rownames(frame)<-c("lier","neu","obj","sup")
+colnames(frame)<-c("not buy","buy")
+
+barplot(frame,beside=TRUE,col=rainbow(4))
+legend("topleft",fill=rainbow(4),legend=c("lier","neu","obj","sup"))
+
+#不购物的人并不是说我十分反对双十一剁手，而是对于购物比较理性，甚至于说漠不关心（说谎的人可能是填表写错了，连自己购物与否都不记得），不购物对于双十一支持和反对的人数相比于购物的人具有很大差距
+```
+
+结论9.2.
+
+: 不购物的人并不是十分反对双十一剁手，而是对于购物比较理性，甚至于说漠不关心（说谎的人可能是填表写错了，连自己购物与否都不记得），不购物对于双十一支持和反对的人数相比于购物的人具有很大差距
+
+## 由男女比例~消费评价分析
+
+```{r,echo=FALSE,warning=FALSE}
+#关于男女比例~消费评价
+#table(data_notbuy$gender)#男女均衡
+
+p.notbuy<-ggplot(data_notbuy,aes(x=gender,fill=as.factor(atti)))+geom_bar()+coord_polar()+
+  scale_fill_discrete(name = "attitude no con to con")+labs(x="",y="")
+p.buy<-ggplot(data_buy,aes(x=gender,fill=as.factor(atti)))+geom_bar()+
+  scale_fill_discrete(name = "attitude of con to con")+labs(x="",y="")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+#con是consume的意思
+grid.arrange(p.notbuy,p.buy,ncol=2,widths=c(3,2))
+
+#消费中的女性支持人数比例明显高于男性支持比例
+#这里的男性尽管不参与消费，但是仍有小部分对于双十一消费是支持的，相比于男性，女性有更多的一部分对双十一是持有中立或者反对态度的，女性更加“淡定”
+#ggplot(data_notbuy,aes(x=gender,y=income))+geom_point()+facet_grid(~gender)
+
+#layout(matrix(c(1,2),1,2,byrow=TRUE))
+#hist(data_notbuy[which(data_notbuy$gender=="male"),"income"],main="income of male without con",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+#hist(data_notbuy[which(data_notbuy$gender=="female"),"income"],main="income of female without con",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+
+
+#layout(matrix(c(1,2),1,2,byrow=TRUE))
+#hist(data_buy[which(data_buy$gender=="male"),"income"],main="income of male who consume",col="orange",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+#hist(data_buy[which(data_buy$gender=="female"),"income"],main="income of female who consume",col="pink",xlab="income",ylab="counts");abline(v=10000,col="red",lty="dashed")
+
+#不消费的女性收入较低，并且女性更理智
+#我底下这段代码想分析消费和不消费两类人中评价和收入的关系，但是不剁手且支持（或反对）的样本量太少了，我去分析中立的态度给我整不会了，我从底下两个图看不出来啥东西
+
+layout(matrix(c(1,2),1,2,byrow=TRUE))
+hist(data_notbuy[which(data_notbuy$atti=="neu"|data_notbuy$atti=="lier"),"income"],main="income of no con with neu|lier",col="orange",xlab="income",ylab="counts")
+hist(data_buy[which(data_buy$atti=="neu"),"income"],main="income of con with neu|lier",col="pink",xlab="income",ylab="counts")
+
+
+
+p.buy.male<-ggplot(data_buy[which(data_buy$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of male con")+theme(plot.title=element_text(hjust=0.5))
+p.buy.female<-ggplot(data_buy[which(data_buy$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of female con")+theme(plot.title=element_text(hjust=0.5))
+p.nbuy.male<-ggplot(data_notbuy[which(data_notbuy$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of male no con")+theme(plot.title=element_text(hjust=0.5))
+p.nbuy.female<-ggplot(data_notbuy[which(data_notbuy$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of female no con")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.buy.male,p.buy.female,p.nbuy.male,p.nbuy.female,ncol=2)
+
+#直方图和箱型图各取所需
+#箱型图请参照本文件第一幅箱型图，对比来看
+#还是能看出来消费总体（即不考虑18~25岁&全日制学生）的收入水平要元高于不消费总体的收入水平，值得注意的是不消费的女性收入要比男性更偏低集中一点
+```
+
+结论9.3.
+
+: 我们首先看到不消费中的女性支持人数比例明显高于男性支持比例，其次在这部分分析中所取男性样本尽管不参与消费，但是仍有小部分对于双十一消费是支持的，相比于男性，女性有更多的一部分对双十一是持有中立或者反对态度的，女性更加“淡定”，进一步我们看到不消费的女性收入较低，并且女性更理智，而且我们通过分析消费和不消费两类人中评价和收入的关系，我们可以发现不剁手且收入低的人群的评价会更加中立，而剁手的人群的中立评价对于收入则呈现出较为分散的状态，这说明收入对不剁手群体的评价的影响会更大一些，而对于剁手人群则影响较弱，(箱型图请参照本文件第一幅箱型图，对比来看)我们还可以发现消费总体（即不考虑18-25岁\&全日制学生）的收入水平要远高于不消费总体的收入水平，值得注意的是不消费的女性收入要比男性更偏低集中一点
+
+## 目标人群分析
+
+```{r,echo=FALSE,warning=FALSE}
+#我真的比较好奇学生群体且年龄在18~25岁的群体——称为目标人群
+ind.buy.target<-which(data_buy$job=="全日制学生"&data_buy$age=="18~25岁")
+ind.notbuy.target<-which(data_notbuy$job=="全日制学生"&data_notbuy$age=="18~25岁")
+data_buytar<-data_buy[ind.buy.target,]
+data_nbuytar<-data_notbuy[ind.notbuy.target,]
+
+
+p.tar.box<-ggplot(data_buytar,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("income:tar&con")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))
+p.ntar.box<-ggplot(data_nbuytar,aes(x="",y=income))+geom_boxplot(color="black",fill="lightblue")+ggtitle("income:tar&no con")+labs(x="",y="income")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.tar.box,p.ntar.box,ncol=2)
+
+#显然消费目标人群的收入水平比不消费的目标人群要高
+mytable<-cbind(table(data_nbuytar$atti),table(data_buytar$atti))
+mytable[1,2]<-0;mytable[2:4,2]<-table(data_buytar$atti)
+colnames(mytable)<-(c("tar&no con","tar&con"))
+
+barplot(mytable,beside=TRUE,col=rainbow(4))
+legend("topleft",fill=rainbow(4),legend=c("lier","neu","obj","sup"))
+
+#消费目标群体他们收入水平高，同时热衷于给出对双十一消费的看法，支持和反对相较于中立有更多人，不消费目标群体收入较低，对双十一活动较为“漠不关心”，支持与反对的人数十分少，大多抱有中立的态度
+
+#目标群体中的男女，这里只着重分析收入水平，因为不消费的人群中评价大多数是neu或者lier（表示漠不关心）这里再分男女毫无意义
+
+p.tarbuy.male<-ggplot(data_buytar[which(data_buytar$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&con&male")+theme(plot.title=element_text(hjust=0.5))
+p.tarbuy.female<-ggplot(data_buytar[which(data_buytar$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&con&female")+theme(plot.title=element_text(hjust=0.5))
+p.tarnbuy.male<-ggplot(data_nbuytar[which(data_nbuytar$gender=="male"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&no con&male")+theme(plot.title=element_text(hjust=0.5))
+p.tarnbuy.female<-ggplot(data_nbuytar[which(data_nbuytar$gender=="female"),],aes(x="",y=income))+geom_boxplot(color="black",fill="orange")+
+  labs(x="",y="income")+ggtitle("income of tar&no con&female")+theme(plot.title=element_text(hjust=0.5))
+grid.arrange(p.tarbuy.male,p.tarbuy.female,p.tarnbuy.male,p.tarnbuy.female,ncol=2)
+
+#在第一组图中我们可以看出消费目标人群的收入较为离散，结合第二组图我们可以发现目标群体的女性收入比男性要离散，因此离散的点体现在女性群体
+#这个规律跟chunk3中的男女规律类似，不消费女性的收入要相比于男性偏低集中，但是最后的结果是男性的相对高收入将总体的收入水平提高，但是不消费群体中不具有这样的现象
+```
+
+结论9.4.
+
+: 我们首先可以明显看到消费目标人群的收入水平比不消费的目标人群要高，进一步我们发现消费目标群体他们收入水平高，同时热衷于给出对双十一消费的看法，支持和反对相较于中立有更多人，不消费目标群体收入较低，对双十一活动较为“漠不关心”，支持与反对的人数十分少，大多抱有中立的态度，其次因为不消费的人群中评价大多数是neu或者lier（表示漠不关心）这里再分男女毫无意义，故这里只着重分析收入水平，我们得到以下结论:在第一组图中我们可以看出消费目标人群的收入较为离散，结合第二组图我们可以发现目标群体的女性收入比男性要离散，因此离散的点体现在女性群体，且结合上一步分析我们发现该处规律和上述分析中的男女规律类似，不消费女性的收入要相比于男性偏低集中，但是最后的结果是男性的相对高收入将总体的收入水平提高，但是不消费群体中不具有这样的现象
+
+## 职业
+
+```{r,echo=FALSE,warning=FALSE}
+#先看职业
+
+#还是能看出来学生平均收入还是要低一点的（也可以用summary看出）
+#底下的代码可以看出学生的态度跟总体的态度是一致的，学生态度可以代表总体
+#layout(matrix(c(1,2),1,2,ncol=2))
+#barplot(table(data_notbuy$atti),main="不购物总体态度",xlab="收入",ylab="计数")
+#barplot(table(data_notbuy[ind.notbuy.stu,"atti"]),main="不购物学生总体态度",xlab="收入",ylab="计数")
+
+layout(matrix(c(1,2,3,4),2,2,byrow=TRUE))
+hist(data_notbuy$income,main="income of all no consume",xlab="income",ylab="counts")
+hist(data_notbuy[ind.notbuy.stu,"income"],main="income of stu no consume",xlab="income",ylab="counts")
+hist(data_notbuy$income,main="income of all no consume",xlab="income",ylab="counts")
+hist(data_notbuy[ind.notbuy.18,"income"],main="income of 18-25 no consume",xlab="income",ylab="counts")
+
+#还是可以看出来学生群体平均收入还是要稍低一些的
+
+#总体的男女对比收入水平在第三块代码区
+```
+
+结论9.5.
+
+: 我们首先可以看出学生平均收入相对要低(该处也可从summary看出),而且我们由进一步分析发现学生的态度跟总体的态度是一致的，因而我们用学生态度代表总体可以看出学生群体平均收入还是总体偏低的
+
+# 整体总结
+
+总结.
+
+: 
+1. 对于双十一消费的人群：
+
+  1.经济条件相对较好的群体在购物时表现得更为理性，导致其更加支持双十一购物活动。
+  
+  2.双十一购物活动带来了显著优惠，但促销范围局限于服饰，化妆品类，而对大型家电及电子产品力度并不明显。大多消费者能保持相对理性，购物的疯狂或许是商家的促销手段，并不完全符合社会现状
+  
+  3.为谁购物受地区影响较小。随收入水平提升，消费者更愿意为孩子以外的人群选购，对于孩子，消费者对于商品是否参与活动关注度小，往往会尽量满足其需求
+  
+  4.京东和淘宝仍是目前购买力最大的平台：淘宝的受众更广泛，但其信赖度低于京东；同时在电子产品和家用电器方面，传统购物仍保持优势
+  
+  5.拼多多的拼单吸引了一批消费者，而京东和淘宝的大量消费者表明二者已经拥有自己的消费群体。尽管使用花呗白条及其他活动一定程度上影响平台收入，但是以上二者受众数量并未产生较大起伏，有利于平台的发展。
+  
+  6.18-25岁全日制学生大部分由于收入限制能够理性消费。但仍有一部分受平台是否允许透支型消费影响大于平台活动，超前消费在该部分人群中尤为突出。目标群体与总体无较大差异
+  
+  7.女性相比于男性消费更加理智，同时购买力更强，只有电子产品二者购买数量均衡；在购买产品方面，男性较偏爱于为恋人购物，且随着时间增长，会丧失对宠物的喜爱(推测会交由女性打理),而女性对各种品类均有涉猎。最后女性对活动参与度高于男性而男性对透支型软件使用更加频繁
+  
+2. 两种人群的对比：
+  
+  1.不消费人群的收入分布较为密集，但收入水平低于消费人群，不购物人群的最低收入要低于购物人群低消费
+  
+  2.不购物人群大多对双十一购物持中立态度，而非大部分反对
+  
+  3.持中立态度者购物群体收入较为离散，而不购物者大多收入较低
+  
+  4.不购物者持支持态度的女性较多，这与购物人群的规律是一致的，可以看出女性对于购物无论是否消费仍心存希望
+  
+  5.购物的目标群体（18-25岁全日制学生）对于双十一更乐意发表自身的看法，而不购物者大多持中立态度（或漠不关心）
+  
+  6.消费群体中的收入，男女相差不多，但是得到的总体收入数据比较离散，说明目标群体外的其他人群收入更加离散；不消费的群体中男性收入要比女性高，得到的总体收入较为集中，这是由于男性样本数量较少造成的
+  
+# 双十一购物推荐
+
+ - 平台选择:对于家电和电子产品等更推荐选择京东及线下购物场所，对于服饰及化妆品类产品，更推荐选择淘宝平台
+ 
+ - 预期消费设置:对于需要采购家电等大型电器的消费者而言，需要做好消费水平高的心理准备，以防止实际消费远超于预期消费
+ 
+ - 购物种类:对于服饰化妆品类产品，更推荐参与双十一的选购，而对于家电类产品则无需等待双十一的购物时机
+ 
+ 
+# 作业分工
+
+尚尔淦同学主要负责数据清洗，报告的录入，代码方面主要负责绘制预期消费\&实际消费，为谁购物，购物平台相应的与其他因素的关系，以及未购物人群的分析
+
+彭小雨同学主要负责报告以及结论的撰写，代码方面主要负责购物种类，年龄\&性别\&职业相应的与其他因素的关系，以及省市区域的分布讨论，同时也负责部分数据清洗
