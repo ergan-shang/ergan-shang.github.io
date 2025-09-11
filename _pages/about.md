@@ -40,6 +40,3 @@ Tianyu Zhang, Jing Lei, and Kathryn Roeder. "Debiased Projected Two-Sample Compa
 - **2024.08.** I gave a talk at [2024 Joint Statistical Meeting](https://ww2.amstat.org/meetings/jsm/2024/) in the topic "Genetic Convergence Analysis of CRISPR Perturbations".
 
 
-<!-- ## Life
-
-We have two [guinea pigs](/files/guinea_pigs.JPG)>
