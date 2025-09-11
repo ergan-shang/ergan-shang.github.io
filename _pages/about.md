@@ -41,4 +41,4 @@ Tianyu Zhang, Jing Lei, and Kathryn Roeder. "Debiased Projected Two-Sample Compa
 
 ## Life and Hobby
 
-I’m a big fan of Japanese culture, J-Pop, and both anime and animation. I’ve been learning Japanese on my own for more than two years so that I can sing Japanese songs and sometimes watch Japanese TV series without subtitles. My favorite animation character is ![Usagi](images/usagi.HEIC) in *Chiikawa*, and my favorite animation is *Evangelion*. Here is a photo of my collections of ![souvenirs](images/evangelion_family_photo.JPG) of Evangelion.
+I’m a big fan of Japanese culture, J-Pop, and both anime and animation. I’ve been learning Japanese on my own for more than two years so that I can sing Japanese songs and sometimes watch Japanese TV series without subtitles. My favorite animation character is ![Usagi](/images/usagi.HEIC) in *Chiikawa*, and my favorite animation is *Evangelion*. Here is a photo of my collections of ![souvenirs](/images/evangelion_family_photo.JPG) of Evangelion.
