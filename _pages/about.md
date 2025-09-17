@@ -21,7 +21,7 @@ I'm interested in developing and applying machine learning methodologies on real
 
 ## Publications
 
-- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution"
+- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.biorxiv.org/content/10.1101/2025.09.12.675662v1?rss=1)
 
 ## Working Papers
 
