@@ -8,24 +8,27 @@ redirect_from:
   - /about.html
 ---
 
-I am a PhD candidate in the Department of [Statistics and Data Science](https://www.cmu.edu/dietrich/statistics-datascience/index.html) in [Carnegie Mellon University](https://www.cmu.edu). I am very fortunate to be advised by Professor [Kathryn Roeder](https://kathrynmroeder.github.io). While she is my primary thesis advisor, I also collaborate extensively with Professors [Tianyu Zhang](https://terrytianyuzhang.github.io) and [Yuting Wei](https://yutingwei.github.io) on a variety of projects, many of which are joint efforts with Professor Roeder. We worked on developing and applying machine learning methods on high dimensional, nonparamatric data, particularly in settings with strong dependencies. I have also extensively worked with Professor [Weijing Tang](https://sites.google.com/andrew.cmu.edu/weijingtang/home) on statistical network inference. Before coming to CMU, I obatined a Bachelor's degree in Mathematics from [University of Science and technology of China](https://en.ustc.edu.cn) in 2023.
+I am a PhD candidate in the Department of [Statistics and Data Science](https://www.cmu.edu/dietrich/statistics-datascience/index.html) in [Carnegie Mellon University](https://www.cmu.edu). I am very fortunate to be advised by Professor [Kathryn Roeder](https://kathrynmroeder.github.io). While she is my primary thesis advisor, I also collaborate extensively with Professors [Tianyu Zhang](https://terrytianyuzhang.github.io) and [Yuting Wei](https://yutingwei.github.io) on a variety of projects, many of which are joint efforts with Professor Roeder. We worked on developing and applying deep learning methods on high dimensional, nonparamatric data, particularly in settings with strong dependencies. I am also interested in algorithm design for improving transformer architectures and large language models (LLMs) via reinforcement learning methods such as PPO and GRPO, in close collaboration with Professor [Linjun Zhang](https://linjunz.github.io/index.html). I have also worked extensively with Professor [Weijing Tang](https://sites.google.com/andrew.cmu.edu/weijingtang/home) on LLM benchmarking and statistical network inference. Before coming to CMU, I obatined a Bachelor's degree in Mathematics from [University of Science and technology of China](https://en.ustc.edu.cn) in 2023.
 
 
 ## Research Interests
 
 I'm interested in developing and applying machine learning methodologies on real-data applications including:
 
+-   Advance **LLM performance and benchmark** frameworks via reinforcement learning algorithms, including PPO and GRPO.
 -   **Single-cell RNA sequencing analysis** (both novel scientific questions and methodological developments)
 -   **Generative Models and Synthetic Data Analysis** (especially the diffusion model and data debiasing)
 -   **Statistical Network Inference**
 
 ## Publications
 
-- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.biorxiv.org/content/10.1101/2025.09.12.675662v1?rss=1)
+- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.pnas.org/doi/10.1073/pnas.2525268122)
 - Tianyu Zhang, **Ergan Shang** and Kathryn Roeder, "Genetic Convergence Analysis of CRISPR Perturbations Deciphers Gene Functional Similarity". [Paper](https://www.biorxiv.org/content/10.1101/2025.11.13.688060v1)
 
 ## Working Papers
 
+- **Ergan Shang**, Weijing Tang and Yinqiu He, "LLM evaluation, out-of-sample performance prediction, multidimensional item response theory, contextual embeddings"
+- **Ergan Shang**, Kathryn Roeder and Yuting Wei, "SCARF: A **S**ingle-**C**ell perturb**A**tion p**R**ediction **F**ramework
 - **Ergan Shang**, Weijing Tang and Yuan Zhang, "Inference for Balance Theory in Time-Varying Signed Network"
 
 ## Software
@@ -35,9 +38,10 @@ I'm interested in developing and applying machine learning methodologies on real
 Tianyu Zhang, Jing Lei, and Kathryn Roeder. "Debiased Projected Two-Sample Comparisonscfor Single-Cell Expression Data."
 
 ## News
+- **2025.05.** I will start to work as a Machine Learning Research Scientist Intern at Meta in Seattle.
 - **2025.06.** I presented a poster titled "Inference for Balance Theory in Time-Varying Signed Network" in the [2025 Workshop on Statistical Network Analysis and Beyond (SNAB 2025)](https://yangfengstat.github.io/snab2025/) in Tokyo, Japan.
 - **2025.04.** I am honored to receive the **Mihaela Serban Award** for the Best Student Poster in the American Statistical Association(ASA) Banquet in Pittsburgh.
-- **2024.08.** I gave a talk at [2024 Joint Statistical Meeting](https://ww2.amstat.org/meetings/jsm/2024/) in the topic "Genetic Convergence Analysis of CRISPR Perturbations".
+<!-- - **2024.08.** I gave a talk at [2024 Joint Statistical Meeting](https://ww2.amstat.org/meetings/jsm/2024/) in the topic "Genetic Convergence Analysis of CRISPR Perturbations". -->
 
 ## Life and Hobby
 
