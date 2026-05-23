@@ -38,7 +38,7 @@ I'm interested in developing and applying machine learning methodologies on real
 Tianyu Zhang, Jing Lei, and Kathryn Roeder. "Debiased Projected Two-Sample Comparisonscfor Single-Cell Expression Data."
 
 ## News
-- **2025.05.** I will start to work as a Machine Learning Research Scientist Intern at Meta in Seattle.
+- **2026.05.** I will start to work as a Machine Learning Research Scientist Intern at Meta in Seattle.
 - **2025.06.** I presented a poster titled "Inference for Balance Theory in Time-Varying Signed Network" in the [2025 Workshop on Statistical Network Analysis and Beyond (SNAB 2025)](https://yangfengstat.github.io/snab2025/) in Tokyo, Japan.
 - **2025.04.** I am honored to receive the **Mihaela Serban Award** for the Best Student Poster in the American Statistical Association(ASA) Banquet in Pittsburgh.
 <!-- - **2024.08.** I gave a talk at [2024 Joint Statistical Meeting](https://ww2.amstat.org/meetings/jsm/2024/) in the topic "Genetic Convergence Analysis of CRISPR Perturbations". -->
