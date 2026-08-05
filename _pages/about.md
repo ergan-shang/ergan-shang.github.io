@@ -24,12 +24,12 @@ I'm interested in developing and applying machine learning methodologies on real
 
 - **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.pnas.org/doi/10.1073/pnas.2525268122)
 - Tianyu Zhang, **Ergan Shang** and Kathryn Roeder, "Genetic Convergence Analysis of CRISPR Perturbations Deciphers Gene Functional Similarity". [Paper](https://www.biorxiv.org/content/10.1101/2025.11.13.688060v1)
+- **Ergan Shang**, Weijing Tang and Yuan Zhang, "Inference for Balance in Dynamic Signed Networks". [Paper](https://arxiv.org/abs/2606.08786)
 
 ## Working Papers
 
 - **Ergan Shang**, Weijing Tang and Yinqiu He, "LLM evaluation, out-of-sample performance prediction, multidimensional item response theory, contextual embeddings"
 - **Ergan Shang**, Kathryn Roeder and Yuting Wei, "SCARF: A **S**ingle-**C**ell perturb**A**tion p**R**ediction **F**ramework
-- **Ergan Shang**, Weijing Tang and Yuan Zhang, "Inference for Balance Theory in Time-Varying Signed Network"
 
 ## Software
 
