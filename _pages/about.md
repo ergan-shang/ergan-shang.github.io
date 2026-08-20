@@ -20,13 +20,13 @@ I'm interested in developing and applying machine learning methodologies on real
 -   **Generative Models and Synthetic Data Analysis** (especially the diffusion model and data debiasing)
 -   **Statistical Network Inference**
 
-## Publications
+## Publications & Preprints
 
-- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.pnas.org/doi/10.1073/pnas.2525268122)
-- Junwei Zhou, Zhen Sun, Yongchao Chen, Shijia Sun, Koutian Wu, **Ergan Shang**, Ziyan Zhao, Jingyan Xie et al. "ASI-Bench: At the Dawn of Artificial Superintelligence". [Paper](https://arxiv.org/abs/2608.17271)
-- Tianyu Zhang, **Ergan Shang** and Kathryn Roeder, "Genetic Convergence Analysis of CRISPR Perturbations Deciphers Gene Functional Similarity". [Paper](https://www.biorxiv.org/content/10.1101/2025.11.13.688060v1)
-- **Ergan Shang**, Flavio Sales Truzzi, "ERASE: EaRly bAckpropagation SchEdule for Faster Training of Modern Recommendation Systems". [Paper](https://arxiv.org/abs/2608.18469)
-- **Ergan Shang**, Weijing Tang and Yuan Zhang, "Inference for Balance in Dynamic Signed Networks". [Paper](https://arxiv.org/abs/2606.08786)
+- **Ergan Shang**, Yuting Wei, Kathryn Roeder, "Predicting the unseen: a diffusion-based debiasing framework for transcriptional response prediction at single-cell resolution". [Paper](https://www.pnas.org/doi/10.1073/pnas.2525268122), *PNAS*
+- Junwei Zhou, Zhen Sun, Yongchao Chen, Shijia Sun, Koutian Wu, **Ergan Shang**, Ziyan Zhao, Jingyan Xie et al. "ASI-Bench: At the Dawn of Artificial Superintelligence". [Paper](https://arxiv.org/abs/2608.17271)， *Submitted*
+- Tianyu Zhang, **Ergan Shang** and Kathryn Roeder, "Genetic Convergence Analysis of CRISPR Perturbations Deciphers Gene Functional Similarity". [Paper](https://www.biorxiv.org/content/10.1101/2025.11.13.688060v1), *Submitted to Science Advance*
+- **Ergan Shang**, Flavio Sales Truzzi, "ERASE: EaRly bAckpropagation SchEdule for Faster Training of Modern Recommendation Systems". [Paper](https://arxiv.org/abs/2608.18469), *Submitted to Neurips 2026*
+- **Ergan Shang**, Weijing Tang and Yuan Zhang, "Inference for Balance in Dynamic Signed Networks". [Paper](https://arxiv.org/abs/2606.08786), *Submitted to JMLR*
 
 ## Working Papers
 
