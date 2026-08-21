@@ -44,7 +44,7 @@ I'm interested in developing and applying machine learning methodologies on real
 
 ## Working Papers
 
-- **Ergan Shang**, Weijing Tang and Yinqiu He, "LLM evaluation, out-of-sample performance prediction, multidimensional item response theory, contextual embeddings"
+- **Ergan Shang**, Weijing Tang and Yinqiu He, "LLM Evaluation on Unseen Questions: Contextual Multidimensional IRT Model"
 - **Ergan Shang**, Kathryn Roeder and Yuting Wei, "SCARF: A **S**ingle-**C**ell perturb**A**tion p**R**ediction **F**ramework
 
 ## Software
