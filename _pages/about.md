@@ -41,10 +41,14 @@ I'm interested in developing and applying machine learning methodologies on real
 - **Inference for Balance in Dynamic Signed Networks**  
     **Ergan Shang**, Weijing Tang, Yuan Zhang  
     *Submitted to JMLR* · [Paper](https://arxiv.org/abs/2606.08786)
+  
+- **LLM Evaluation on Unseen Questions: Contextual Multidimensional IRT Model**  
+    **Ergan Shang**, Weijing Tang, Yinqiu He
+    *Submitted* · [Paper]([https://arxiv.org/abs/2606.08786](https://arxiv.org/abs/2608.22295))
+
 
 ## Working Papers
 
-- **Ergan Shang**, Weijing Tang and Yinqiu He, "LLM Evaluation on Unseen Questions: Contextual Multidimensional IRT Model"
 - **Ergan Shang**, Kathryn Roeder and Yuting Wei, "SCARF: A **S**ingle-**C**ell perturb**A**tion p**R**ediction **F**ramework
 
 ## Software
